@@ -1,0 +1,23 @@
+{
+  "development": {
+    "username": "etsuser",
+    "password": "Ets@1234",
+    "database": "retailerpnew",
+    "host": "46.202.160.46",
+    "dialect": "postgres"
+  },
+  "test": {
+    "username": "etsuser",
+    "password": "Ets@1234",
+    "database": "retailerpnew",
+    "host": "46.202.160.46",
+    "dialect": "postgres"
+  },
+  "production": {
+    "username": "etsuser",
+    "password": "Ets@1234",
+    "database": "retailerpnew",
+    "host": "46.202.160.46",
+    "dialect": "postgres"
+  }
+}
