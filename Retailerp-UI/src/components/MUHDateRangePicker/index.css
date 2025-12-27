@@ -1,0 +1,126 @@
+/* Style the entire DateRangePicker wrapper */
+.react-daterange-picker {
+  border: 1px solid #aeafb0;
+    border: none !important;
+  box-shadow: none !important;
+  border-radius: 4px;
+  padding: 6.5px;
+  z-index: 200;
+  width: 100%;
+  background-color: #fff;
+  font-size: 12px;
+}
+
+/* Remove default border from wrapper */
+.react-daterange-picker__wrapper {
+  border: none !important;
+  width: 100%;
+}
+
+/* Style the input field */
+.react-daterange-picker__inputGroup {
+  min-height: 32px;
+  flex-grow: 1;
+}
+
+.react-daterange-picker__inputGroup__input {
+  border: none;
+  outline: none;
+  padding: 2px;
+  font-size: 12px;
+}
+
+/* Style the calendar wrapper */
+.react-calendar {
+  background-color: #f7f7f7;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+}
+
+/* Style the navigation (month/year selectors) */
+.react-calendar__navigation {
+  background-color: #117abb;
+  color: #fff;
+  border-radius: 5px;
+  padding: 5px;
+  margin-bottom: 0;
+}
+
+/* Style individual navigation buttons (e.g., arrows) */
+.react-calendar__navigation button {
+  background: none;
+  color: #fff;
+  border: none;
+  font-size: 10px;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.react-calendar__navigation button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Style individual day cells */
+.react-calendar__tile {
+  border-radius: 4px;
+  color: #333;
+  padding: 6px;
+  font-weight: 500;
+  font-size: 11px;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+/* Style selected day */
+.react-calendar__tile--active {
+  background-color: #117abb !important;
+  color: white !important;
+}
+
+/* Style hover effect for day cells */
+.react-calendar__tile:hover {
+  background-color: #e0f2f1;
+  color: #000;
+}
+
+/* Style the date range selection */
+.react-calendar__tile--range {
+  background-color: #e3f2fd !important;
+  color: #000 !important;
+}
+
+/* Style the start and end of range */
+.react-calendar__tile--rangeStart,
+.react-calendar__tile--rangeEnd {
+  background-color: #117abb !important;
+  color: white !important;
+}
+
+/* Style today's date */
+.react-calendar__tile--now {
+  background-color: #ffecb3;
+  color: #333;
+}
+
+.react-calendar__tile--now:hover {
+  background-color: #ffe082;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .react-calendar {
+    font-size: 10px;
+  }
+
+  .react-daterange-picker {
+    font-size: 11px;
+  }
+}

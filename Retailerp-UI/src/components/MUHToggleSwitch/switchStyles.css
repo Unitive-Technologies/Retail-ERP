@@ -1,0 +1,35 @@
+/* Default styles for the switch */
+.switch {
+    width: 40px;
+    height: 21px;
+  }
+  
+  /* Media queries for different screen sizes */
+  @media (max-width: 1200px) {
+    .switch {
+      width: 35px;
+      height: 20px;
+    }
+  }
+  
+  @media (max-width: 900px) {
+    .switch {
+      width: 30px;
+      height: 18px;
+    }
+  }
+  
+  @media (max-width: 600px) {
+    .switch {
+      width: 25px;
+      height: 16px;
+    }
+  }
+  
+  @media (max-width: 400px) {
+    .switch {
+      width: 20px;
+      height: 14px;
+    }
+  }
+  

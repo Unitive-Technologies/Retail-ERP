@@ -1,0 +1,81 @@
+@font-face {
+  font-family: 'Poppins-Regular';
+  src:
+    local('Poppins-Regular'),
+    url('assets/Fonts/Poppins-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Poppins-Medium';
+  src:
+    local('Poppins-Medium'),
+    url('assets/Fonts/Poppins-Medium.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Poppins-Bold';
+  src:
+    local('Poppins-Regular'),
+    url('assets/Fonts/Poppins-Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Inter-Medium';
+  src:
+    local('Inter_18pt-Medium'),
+    url('assets/Fonts/Inter_18pt-Medium.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Inter-Regular';
+  src:
+    local('Inter-Regular'),
+    url('assets/Fonts/Inter_18pt-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Inter-Light';
+  src:
+    local('Inter-Light'),
+    url('assets/Fonts/Inter_18pt-Light.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Roboto-Regular';
+  src:
+    local('Roboto-Regular'),
+    url('assets/Fonts/Roboto-Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Roboto-Medium';
+  src:
+    local('Roboto-Medium'),
+    url('assets/Fonts/Roboto-Medium.ttf') format('truetype');
+}
+
+html,
+body,
+* {
+  padding: 0;
+  max-width: '100%';
+  margin: 0;
+  font-family: 'Roboto-Regular';
+}
+
+html {
+  scroll-behavior: smooth;
+  /* overflow: hidden; */
+}
+
+::-webkit-scrollbar {
+  width: 8px; /* Set the width of the vertical scrollbar */
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #a8a8a6; /* Set the scrollbar thumb color */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1; /* Set the scrollbar track color */
+}

@@ -1,0 +1,18 @@
+{
+  "login": [
+    {
+      "id": 1,
+      "mobile_number": "9999999999",
+      "password": "admin@123",
+      "role_id": 1,
+      "login_type": "super admin"
+    },
+    {
+      "id": 2,
+      "mobile_number": "8888888888",
+      "password": "customer@123",
+      "role_id": 1,
+      "login_type": "account manager"
+    }
+  ]
+}

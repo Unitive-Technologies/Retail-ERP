@@ -1,0 +1,78 @@
+import AutoSearchSelectWithLabel from '@components/AutoSearchWithLabel';
+import {
+  CommonFilterAutoSearchProps,
+  tableFilterContainerStyle,
+} from '@components/CommonStyles';
+import CommonTableFilter from '@components/CommonTableFilter';
+import Grid from '@mui/material/Grid2';
+
+type Props = {
+  selectItems: any[];
+  handleSelectValue: (val: any) => void;
+  selectedValue: any[];
+  handleFilterClear: () => void;
+  edit: any;
+  isOfferPlan?: boolean;
+};
+
+export const BranchList = [
+  {
+    value: 1,
+    label: 'Silver Craft Jewels',
+  },
+  {
+    value: 2,
+    label: 'HKM Branch',
+  },
+];
+
+export const ModeList = [
+  {
+    value: 1,
+    label: 'online',
+  },
+  {
+    value: 2,
+    label: 'offline',
+  },
+];
+
+const CustomerTableFilter = ({
+  selectItems,
+  handleSelectValue,
+  selectedValue,
+  handleFilterClear,
+  edit,
+}: Props) => {
+  return (
+    <Grid container sx={tableFilterContainerStyle}>
+      <Grid size={1.3}>
+        <AutoSearchSelectWithLabel
+          options={BranchList}
+          placeholder="Branch"
+          value={edit?.getValue('branch')}
+          onChange={(e, value) => edit.update({ branch: value })}
+          {...CommonFilterAutoSearchProps}
+        />
+      </Grid>
+      <Grid size={1.3}>
+        <AutoSearchSelectWithLabel
+          options={ModeList}
+          placeholder="Mode"
+          value={edit?.getValue('mode')}
+          onChange={(e, value) => edit.update({ mode: value })}
+          {...CommonFilterAutoSearchProps}
+        />
+      </Grid>
+      <CommonTableFilter
+        selectItems={selectItems}
+        selectedValue={selectedValue}
+        handleSelectValue={handleSelectValue}
+        handleFilterClear={handleFilterClear}
+        edit={edit}
+      />
+    </Grid>
+  );
+};
+
+export default CustomerTableFilter;
