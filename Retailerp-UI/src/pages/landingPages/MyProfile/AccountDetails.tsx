@@ -1,8 +1,11 @@
-import { AddressIcon, EditIcon } from '@assets/Images';
-import { defaultAddresses } from '@constants/DummyData';
-import { Box, Typography, useTheme } from '@mui/material';
+import React from 'react';
+import { AddressIcon, EditIcon, DeleteOutlinedIcon } from '@assets/Images';
+import { Box, Typography, useTheme, Divider } from '@mui/material';
 import Grid from '@mui/material/Grid2';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { OrderService } from '@services/OrderService';
+import { DropDownServiceAll } from '@services/DropDownServiceAll';
+import MUHLoader from '@components/MUHLoader';
 
 import BasicDetailEdit from './BasicDetailEdit';
 import AddAddress from './AddAddress';
@@ -13,11 +16,95 @@ const AccountDetails = () => {
   const theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [editingAddressData, setEditingAddressData] = useState<any>(null);
+  const [addresses, setAddresses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const handleEditClick = () => setIsEditing(true);
   const handleCancel = () => setIsEditing(false);
-  const handleAddressEdit = () => setIsEditingAddress(true);
-  const handleCancelAddress = () => setIsEditingAddress(false);
+  const handleAddNewAddress = () => {
+    setEditingAddressData(null);
+    setIsEditingAddress(true);
+  };
+
+  const handleEditAddress = (addressData: any) => {
+    setEditingAddressData(addressData);
+    setIsEditingAddress(true);
+  };
+
+  const handleCancelAddress = () => {
+    setEditingAddressData(null);
+    setIsEditingAddress(false);
+  };
+
+  const handleDeleteAddress = async (addressId: number) => {
+    try {
+      await OrderService.deleteCustomerAddress(addressId);
+      refreshAddresses();
+    } catch (error) {
+      console.error('Error deleting address:', error);
+    }
+  };
+
+  // Function to refresh addresses
+  const refreshAddresses = async () => {
+    try {
+      setLoading(true);
+      const response: any = await OrderService.getCustomerAddress();
+      if (response?.data?.data?.addresses) {
+        const addressesWithNames = await Promise.all(
+          response.data.data.addresses.map(async (address: any) => {
+            try {
+              // Fetch state name
+              const stateResponse: any =
+                await DropDownServiceAll.getAllStates();
+              const stateData = stateResponse?.data?.data?.states;
+              const matchedState = stateData?.find(
+                (state: any) => state.id === address.state_id
+              );
+              const stateName =
+                matchedState?.state_name || `State ${address.state_id}`;
+
+              // Fetch district name
+              const districtResponse: any =
+                await DropDownServiceAll.getAllDistricts();
+              const districtData = districtResponse?.data?.data?.districts;
+              let districtName = address.district_id;
+
+              if (districtData && districtData.length > 0) {
+                const matchedDistrict = districtData?.find(
+                  (district: any) =>
+                    district.id === address.district_id ||
+                    district.id === Number(address.district_id) ||
+                    String(district.id) === String(address.district_id)
+                );
+                districtName =
+                  matchedDistrict?.district_name || address.district_id;
+              }
+
+              return {
+                ...address,
+                state_name: stateName,
+                district_name: districtName,
+              };
+            } catch (error) {
+              console.error('Error fetching state/district names:', error);
+              return address;
+            }
+          })
+        );
+        setAddresses(addressesWithNames);
+      }
+    } catch (error) {
+      console.error('Error fetching customer addresses:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshAddresses();
+  }, []);
 
   return (
     <>
@@ -27,7 +114,13 @@ const AccountDetails = () => {
           {isEditing ? (
             <BasicDetailEdit onCancel={handleCancel} />
           ) : isEditingAddress ? (
-            <AddAddress onCancel={handleCancelAddress} />
+            <AddAddress
+              onCancel={handleCancelAddress}
+              editAddressData={editingAddressData}
+              onAddressUpdated={refreshAddresses}
+            />
+          ) : loading ? (
+            <MUHLoader />
           ) : (
             <>
               {/* Basic Details */}
@@ -247,7 +340,7 @@ const AccountDetails = () => {
                 </Typography>
                 <Button
                   size="small"
-                  onClick={handleAddressEdit}
+                  onClick={handleAddNewAddress}
                   sx={{
                     borderRadius: '30px',
                     border: `1px solid ${theme.Colors.primary}`,
@@ -267,8 +360,94 @@ const AccountDetails = () => {
               </Box>
 
               <Box mt={3}>
-                {defaultAddresses.map((addr, idx) => (
-                  <Box key={idx}>
+                {addresses
+                  .filter((addr) => addr.is_default === true)
+                  .map((addr, idx) => (
+                    <Box key={idx}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Typography
+                          style={{
+                            fontWeight: 600,
+                            fontSize: '18px',
+                            color: theme.Colors.primary,
+                            fontFamily: 'Roboto Slab',
+                          }}
+                        >
+                          Default Address
+                        </Typography>
+                        <Box
+                          onClick={() => handleEditAddress(addr)}
+                          sx={{
+                            backgroundColor: '#FFEBEC',
+                            width: 34,
+                            height: 34,
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <EditIcon />
+                        </Box>
+                      </Box>
+                      <Typography
+                        variant="body1"
+                        sx={{
+                          fontWeight: 400,
+                          fontSize: '16px',
+                          color: theme.Colors.black,
+                          fontFamily: 'Roboto Slab',
+                          mt: 1,
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        {addr.name} <br />
+                        {addr.mobile_number} <br />
+                        {addr.address_line} <br />
+                        {addr.district_name} <br />
+                        {addr.state_name} - {addr.pin_code}
+                      </Typography>
+                    </Box>
+                  ))}
+              </Box>
+              {/* <Box my={4} sx={{ borderBottom: '1px solid #632532' }} /> */}
+              <Box display="flex" alignItems="center" my={4}>
+                <Box
+                  sx={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    backgroundColor: theme.Colors.primaryDarkStart,
+                  }}
+                />
+                <Box
+                  sx={{
+                    flex: 1,
+                    height: '2px',
+                    backgroundColor: theme.Colors.primaryDarkStart,
+                  }}
+                />
+                <Box
+                  sx={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    backgroundColor: theme.Colors.primaryDarkStart,
+                  }}
+                />
+              </Box>
+
+              <Box mt={3}>
+                {addresses.filter((addr) => addr.is_default === false).length >
+                  0 && (
+                  <Box>
                     <Box
                       sx={{
                         display: 'flex',
@@ -284,42 +463,85 @@ const AccountDetails = () => {
                           fontFamily: 'Roboto Slab',
                         }}
                       >
-                        Default Address
+                        Other Addresses
                       </Typography>
-                      <Box
-                        onClick={handleAddressEdit}
-                        sx={{
-                          backgroundColor: '#FFEBEC',
-                          width: 34,
-                          height: 34,
-                          borderRadius: '50%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <EditIcon />
-                      </Box>
                     </Box>
-                    <Typography
-                      style={{
-                        fontWeight: 400,
-                        fontSize: '16px',
-                        color: theme.Colors.black,
-                        fontFamily: 'Roboto Slab',
-                      }}
-                      mt={1}
-                      lineHeight={1.6}
-                    >
-                      {addr.name} <br />
-                      {addr.mobile} <br />
-                      {addr.addressLine1} <br />
-                      {addr.addressLine2} <br />
-                      {addr.state} {addr.pin}
-                    </Typography>
+                    {addresses
+                      .filter((addr) => addr.is_default === false)
+                      .map((addr, idx) => (
+                        <React.Fragment key={idx}>
+                          <Box
+                            mb={3}
+                            sx={{
+                              display: 'flex',
+                              flexDirection: 'row',
+                              justifyContent: 'space-between',
+                            }}
+                          >
+                            <Typography
+                              variant="body1"
+                              sx={{
+                                fontWeight: 400,
+                                fontSize: '16px',
+                                color: theme.Colors.black,
+                                fontFamily: 'Roboto Slab',
+                                mt: 1,
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              {addr.name} <br />
+                              {addr.mobile_number} <br />
+                              {addr.address_line} <br />
+                              {addr.district_name} <br />
+                              {addr.state_name} - {addr.pin_code}
+                            </Typography>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                gap: '4px',
+                              }}
+                            >
+                              <Box
+                                onClick={() => handleEditAddress(addr)}
+                                sx={{
+                                  backgroundColor: '#FFEBEC',
+                                  width: 34,
+                                  height: 34,
+                                  borderRadius: '50%',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <EditIcon />
+                              </Box>
+                              <Box
+                                onClick={() => handleDeleteAddress(addr.id)}
+                                sx={{
+                                  backgroundColor: '#FFEBEC',
+                                  width: 34,
+                                  height: 34,
+                                  borderRadius: '50%',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <DeleteOutlinedIcon />
+                              </Box>
+                            </Box>
+                          </Box>
+                          {idx <
+                            addresses.filter(
+                              (addr) => addr.is_default === false
+                            ).length -
+                              1 && <Divider sx={{ my: 2 }} />}
+                        </React.Fragment>
+                      ))}
                   </Box>
-                ))}
+                )}
               </Box>
             </>
           )}

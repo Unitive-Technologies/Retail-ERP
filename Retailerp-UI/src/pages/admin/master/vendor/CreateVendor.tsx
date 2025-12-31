@@ -21,6 +21,7 @@ import {
   isValidGSTIN,
   isValidPAN,
   isValidPinCode,
+  isValidIFSC,
 } from '@utils/form-util';
 import MUHSelectBoxComponent from '@components/MUHSelectBoxComponent';
 import TabFormDetails from './TabFormDetails';
@@ -105,41 +106,67 @@ const CreateVendor = () => {
     visibility: visibilityFilter,
   };
   const edit = useEdit(UserInitialValues);
-  const fieldError = {
-    vendor_no: false,
-    image: false,
-    vendor_name: false,
-    proprietor_name: false,
-    // mobile_no: !edit.allFilled('mobile_no'),
-    mobile_no: false,
-    email: false,
-    gst_no: !!edit.getValue('gst_no') && !isValidGSTIN(edit.getValue('gst_no')),
+  const materialTypeValue = edit.getValue('material_type');
+  const materialTypeArray = Array.isArray(materialTypeValue)
+    ? materialTypeValue.filter((v: any) => {
+        const val = v && typeof v === 'object' ? v.value : v;
+        return val != null && val !== '';
+      })
+    : [];
 
-    pan_no: false,
-    address: false,
-    country: false,
-    state: false,
-    district: false,
+  const mobileNoRaw = String(edit.getValue('mobile_no') || '');
+  const isMobileNoInvalid =
+    mobileNoRaw.length > 0 && mobileNoRaw.replace(/\D/g, '').length < 10;
+
+  const fieldError = {
+    vendor_no: !edit.allFilled('vendor_no'),
+    image: false,
+    vendor_name: !edit.allFilled('vendor_name'),
+    proprietor_name: !edit.allFilled('proprietor_name'),
+    mobile_no: !edit.allFilled('mobile_no') || isMobileNoInvalid,
+    email: !edit.allFilled('email'),
+    gst_no:
+      !edit.allFilled('gst_no') ||
+      (!!edit.getValue('gst_no') && !isValidGSTIN(edit.getValue('gst_no'))),
+    pan_no:
+      !edit.allFilled('pan_no') ||
+      (!!edit.getValue('pan_no') && !isValidPAN(edit.getValue('pan_no'))),
+    address: !edit.allFilled('address'),
+    country: !edit.getValue('country')?.value && !edit.getValue('country_id'),
+    state: !edit.getValue('state')?.value && !edit.getValue('state_id'),
+    district:
+      !edit.getValue('district')?.value && !edit.getValue('district_id'),
     pin_code:
-      !!edit.getValue('pin_code') && !isValidPinCode(edit.getValue('pin_code')),
-    open_balance: false,
-    payment_terms: false,
-    balance_type: false,
-    material_type: false,
+      !edit.allFilled('pin_code') ||
+      (!!edit.getValue('pin_code') &&
+        !isValidPinCode(edit.getValue('pin_code'))),
+    open_balance: !edit.allFilled('open_balance'),
+    payment_terms: !edit.getValue('payment_terms'),
+    balance_type: !edit.getValue('balance_type'),
+    material_type: materialTypeArray.length === 0,
   };
   const hasError = (specificError: boolean) => isError && specificError;
 
+  const accountNoRaw = String(edit.getValue('bank_details.account_no') || '');
+  const isAccountNoInvalid = accountNoRaw.length > 0 && accountNoRaw.length < 9;
+
   const bankDetailsFiledErrors = {
-    branch_name: false,
-    account_holder_name: false,
-    bank_name: false,
-    account_no: false,
-    ifsc_code: false,
+    branch_name: !edit.allFilled('bank_details.branch_name'),
+    account_holder_name: !edit.allFilled('bank_details.account_holder_name'),
+    bank_name: !edit.allFilled('bank_details.bank_name'),
+    account_no:
+      !edit.allFilled('bank_details.account_no') || isAccountNoInvalid,
+    ifsc_code:
+      !edit.allFilled('bank_details.ifsc_code') ||
+      (!!edit.getValue('bank_details.ifsc_code') &&
+        !isValidIFSC(edit.getValue('bank_details.ifsc_code'))),
   };
 
   const loginDetailsFieldErrors = {
-    user_name: false,
-    password: false,
+    user_name: !edit.allFilled('login_details.user_name'),
+    password:
+      !edit.allFilled('login_details.password') ||
+      (edit.getValue('login_details.password')?.length ?? 0) < 8,
   };
 
   const validateBankDetails = () => {
@@ -150,6 +177,38 @@ const CreateVendor = () => {
   };
 
   const validateSpocFields = () => {
+    const spocList = edit.getValue('spoc_details') || [];
+
+    // Filter out completely empty rows
+    const filledRows = spocList.filter(
+      (row: any) => row && (row.contact_name || row.mobile || row.designation)
+    );
+
+    // If no SPOC rows, validation passes (SPOC is optional)
+    if (filledRows.length === 0) {
+      return true;
+    }
+
+    // Validate each filled row
+    for (let i = 0; i < filledRows.length; i++) {
+      const row = filledRows[i];
+
+      // Check if mobile number is exactly 10 digits
+      const mobileDigits = String(row?.mobile || '').replace(/\D/g, '');
+      if (mobileDigits.length !== 10) {
+        toast.error('SPOC Mobile number must be exactly 10 digits');
+        return false;
+      }
+
+      // Check if all required fields are filled
+      if (!row.contact_name || !row.mobile || !row.designation) {
+        toast.error(
+          `SPOC row ${i + 1}: Please fill all fields (Name, Mobile Number, Designation)`
+        );
+        return false;
+      }
+    }
+
     return true;
   };
 
@@ -190,6 +249,12 @@ const CreateVendor = () => {
             .map((v: any) => Number(v && typeof v === 'object' ? v.value : v))
             .filter((v) => !isNaN(v))
         : [];
+
+      if (!materialTypeArr || materialTypeArr.length === 0) {
+        setIsError(true);
+        toast.error('Please select at least one material type');
+        return;
+      }
       const visibilityRaw = edit.getValue('visibility');
       const selectedVisibility: { id: number; name: string }[] = (
         Array.isArray(visibilityRaw) ? visibilityRaw : []
@@ -339,7 +404,58 @@ const CreateVendor = () => {
             );
           }
         }
-        // Fetch updated data to ensure KYC details are displayed
+        // Save or update SPOC details
+        const spocRows = (edit.getValue('spoc_details') || []).filter(
+          (row: any) =>
+            row && (row.contact_name || row.mobile || row.designation)
+        );
+
+        if (spocRows.length > 0) {
+          const existingSpoc = spocRows.filter((row: any) => row.id);
+          const newSpoc = spocRows.filter((row: any) => !row.id);
+
+          try {
+            // Update existing SPOC contacts
+            if (existingSpoc.length > 0) {
+              const payload = existingSpoc.map((row: any) => ({
+                id: row.id,
+                vendor_id: vendorId,
+                contact_name: row.contact_name,
+                designation: row.designation,
+                mobile: row.mobile,
+              }));
+
+              await API_SERVICES.SPOCService.updateSpoc({
+                data: payload,
+                successMessage: undefined,
+                // Let local catch/toast handle any failure
+                failureMessage: undefined,
+              });
+            }
+
+            // Create new SPOC contacts
+            if (newSpoc.length > 0) {
+              const payload = newSpoc.map((row: any) => ({
+                vendor_id: vendorId,
+                contact_name: row.contact_name,
+                designation: row.designation,
+                mobile: row.mobile,
+              }));
+
+              await API_SERVICES.SPOCService.create({
+                data: payload,
+                successMessage: undefined,
+                // Let local catch/toast handle any failure
+                failureMessage: undefined,
+              });
+            }
+          } catch (spocError: any) {
+            console.error('Error saving SPOC details:', spocError);
+            toast.error('Failed to save SPOC details. Please try again.');
+          }
+        }
+
+        // Fetch updated data to ensure KYC & SPOC details are displayed
         if (!isEdit) {
           await fetchData();
         }
@@ -347,7 +463,19 @@ const CreateVendor = () => {
       }
     } catch (error: any) {
       console.error('Error during vendor creation:', error);
-      toast.error('An error occurred while creating the vendor');
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        error?.data?.message ||
+        'An error occurred while creating the vendor';
+      toast.error(errorMessage);
+
+      if (
+        errorMessage.toLowerCase().includes('material') ||
+        errorMessage.toLowerCase().includes('material_type')
+      ) {
+        setIsError(true);
+      }
     }
   };
   const uploadMaterialImageError = isError && !edit.allFilled('image');
@@ -523,7 +651,11 @@ const CreateVendor = () => {
     const branchListResponse: any = await API_SERVICES.BranchService.getAll();
     if (branchListResponse?.data.statusCode === HTTP_STATUSES.OK) {
       const list = branchListResponse?.data?.data?.branches || [];
-      const options = list.map((b: any) => ({
+      // Filter only active branches for visibility dropdown
+      const activeBranches = list.filter(
+        (b: any) => b.status === 'Active'
+      );
+      const options = activeBranches.map((b: any) => ({
         value: b.id,
         label: b.branch_name,
       }));
@@ -740,7 +872,7 @@ const CreateVendor = () => {
       }
     })();
   }, [type]);
-const handleCancel = () => {
+  const handleCancel = () => {
     navigateTo('/admin/master/vendorList');
   };
   return (
@@ -802,7 +934,7 @@ const handleCancel = () => {
               <div style={{ width: '130px', height: '130px' }}>
                 <DragDropUpload
                   required={false}
-                  image_url={edit.getValue('image')}
+                  image_url={edit.getValue('image') || ''}
                   onBrowseButtonClick={onMaterialImageBrowse}
                   handleDeleteImage={() => edit.update({ image: '' })}
                   isError={uploadMaterialImageError}
@@ -855,7 +987,6 @@ const handleCancel = () => {
                 }}
                 isError={hasError(fieldError.proprietor_name)}
                 {...commonTextInputProps}
-                required={false}
               />
             </Grid>
             <Grid size={{ xs: 12, md: 6 }} sx={styles.rightItem}>
@@ -896,7 +1027,6 @@ const handleCancel = () => {
                 }
                 isError={hasError(fieldError.email)}
                 {...commonTextInputProps}
-                required={false}
               />
             </Grid>
             <Grid size={{ xs: 12, md: 6 }} sx={styles.rightItem}>
@@ -1062,19 +1192,18 @@ const handleCancel = () => {
                 }
                 isError={hasError(fieldError.open_balance)}
                 {...commonTextInputProps}
-                required={false}
               />
             </Grid>
 
             <Grid size={{ xs: 12, md: 6 }} sx={styles.rightItem}>
               <AutoSearchSelectWithLabel
-                required={false}
                 label="Payment Terms"
                 isReadOnly={type === 'view'}
                 options={paymentTerms}
                 value={edit.getValue('payment_terms')}
                 onChange={(e, value) => edit.update({ payment_terms: value })}
                 isError={hasError(fieldError.payment_terms)}
+                required
               />
             </Grid>
             <Grid
@@ -1085,13 +1214,13 @@ const handleCancel = () => {
               alignItems={'center'}
             >
               <AutoSearchSelectWithLabel
-                required={false}
                 label="Balance Type"
                 isReadOnly={type === 'view'}
                 options={balanceType}
                 value={edit.getValue('balance_type')}
                 onChange={(e, value) => edit.update({ balance_type: value })}
                 isError={hasError(fieldError.balance_type)}
+                required
               />
             </Grid>
 

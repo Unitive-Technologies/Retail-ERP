@@ -46,7 +46,7 @@ const BankDetails = ({
           }}
           isError={hasError(fieldErrors?.account_holder_name)}
           {...commonTextInputProps}
-          required={false}
+          required={true}
         />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }} sx={styles.rightItem}>
@@ -61,7 +61,7 @@ const BankDetails = ({
           }}
           isError={hasError(fieldErrors?.bank_name)}
           {...commonTextInputProps}
-          required={false}
+          required={true}
         />
       </Grid>
       {isProfile ? (
@@ -78,7 +78,7 @@ const BankDetails = ({
               }}
               isError={hasError(fieldErrors?.account_no) || isAccountNoInvalid}
               {...commonTextInputProps}
-              required={false}
+              required={true}
             />
           </Grid>
           <Grid size={{ xs: 6 }} sx={styles.rightItem}>
@@ -100,7 +100,7 @@ const BankDetails = ({
                   !isValidIFSC(edit?.getValue('bank_details.ifsc_code')))
               }
               {...commonTextInputProps}
-              required={false}
+              required={true}
             />
           </Grid>
         </>
@@ -125,7 +125,7 @@ const BankDetails = ({
                   !isValidIFSC(edit?.getValue('bank_details.ifsc_code')))
               }
               {...commonTextInputProps}
-              required={false}
+              required={true}
             />
           </Grid>
           <Grid size={{ xs: 6 }} sx={styles.rightItem}>
@@ -140,7 +140,7 @@ const BankDetails = ({
               }}
               isError={hasError(fieldErrors?.account_no) || isAccountNoInvalid}
               {...commonTextInputProps}
-              required={false}
+              required={true}
             />
           </Grid>
         </>
@@ -156,7 +156,7 @@ const BankDetails = ({
           }}
           isError={hasError(fieldErrors?.branch_name)}
           {...commonTextInputProps}
-          required={false}
+          required={true}
         />
       </Grid>
     </Grid>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, ChangeEvent } from 'react';
 import {
   Box,
   Typography,
@@ -15,11 +15,6 @@ import {
 } from '@mui/material';
 import Grid from '@mui/material/Grid2';
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
-import {
-  CardProductData,
-  categories,
-  filterOptions,
-} from '@constants/DummyData';
 import { TextInput } from '@components/index';
 import { useNavigate } from 'react-router-dom';
 
@@ -28,13 +23,17 @@ import ProductBuy from './ProductBuy';
 import MUHSelectBoxComponent from '@components/MUHSelectBoxComponent';
 import { sortByOptions } from '@constants/Constance';
 
-// Product type
 type Product = {
   id: string;
   name: string;
-  price: number | string;
-  category?: string;
+  price: number;
   image: string;
+  category?: string;
+  subcategoryId?: number;
+  stone?: string;
+  color?: string;
+  style?: string;
+  shopFor?: string;
 };
 
 interface Subcategory {
@@ -48,6 +47,8 @@ interface ProductFilterProps {
   products?: any[];
   subcategories?: Subcategory[];
   selectedSubcategoryId?: number | null;
+  loading?: boolean;
+  onWishlistClick?: (productId: number, currentWishlistStatus: boolean) => void;
 }
 
 const ProductFilter = ({
@@ -55,6 +56,8 @@ const ProductFilter = ({
   products = [],
   subcategories = [],
   selectedSubcategoryId = null,
+  loading,
+  onWishlistClick,
 }: ProductFilterProps) => {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -62,8 +65,27 @@ const ProductFilter = ({
   const [selectedSubcategory, setSelectedSubcategory] = useState<number | null>(
     selectedSubcategoryId
   );
+
   const [sortBy, setSortBy] = useState('Best Seller');
-  const [priceRange, setPriceRange] = useState<number[]>([0, 5000]);
+
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 50000]);
+
+  // Initialize filters state dynamically based on variants
+  const [filters, setFilters] = useState<Record<string, string[]>>(() => {
+    const initialFilters: Record<string, string[]> = {};
+    if (products && products.length > 0) {
+      products.forEach((product: any) => {
+        if (product.variants && Array.isArray(product.variants)) {
+          product.variants.forEach((variant: any) => {
+            if (!initialFilters[variant.variant_type]) {
+              initialFilters[variant.variant_type] = [];
+            }
+          });
+        }
+      });
+    }
+    return initialFilters;
+  });
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
@@ -75,116 +97,185 @@ const ProductFilter = ({
 
   const categoryDisplayName = useMemo(() => {
     return (
-      products[0]?.category_name ||
       category ||
-      products[0]?.category ||
       'Products'
     );
   }, [category, products]);
 
-  const totalProductCount = useMemo(() => products.length, [products]);
+  // Generate dynamic filters from product variants
+  const dynamicFilterOptions = useMemo(() => {
+    const filterMap: Record<string, Set<string>> = {};
+    
+    products.forEach((product: any) => {
+      if (product.variants && Array.isArray(product.variants)) {
+        product.variants.forEach((variant: any) => {
+          const variantType = variant.variant_type;
+          if (!filterMap[variantType]) {
+            filterMap[variantType] = new Set();
+          }
+          
+          if (variant.type_ids && Array.isArray(variant.type_ids)) {
+            variant.type_ids.forEach((typeId: any) => {
+              if (typeId.value) {
+                filterMap[variantType].add(typeId.value);
+              }
+            });
+          }
+        });
+      }
+    });
+    
+    // Convert Sets to arrays and format keys
+    const result: Record<string, string[]> = {};
+    Object.keys(filterMap).forEach(key => {
+      result[key] = Array.from(filterMap[key]);
+    });
+    
+    return result;
+  }, [products]);
 
   // Transform API products to match ProductGrid format
   const transformedProducts = useMemo(() => {
     return products.map((product: any) => ({
-      id: product.id?.toString() || '',
-      name: product.product_name || '',
-      price: product.base_price || product.price || 0,
+      id: product.id?.toString(),
+      name: product.product_name,
+      price: Number(product.selling_price) || 0,
       image: product.image_urls?.[0] || '',
-      category: product.category_name || '',
+      category: product.category_name,
+      subcategoryId: product.subcategory_id ?? null,
       isNew: false,
       discount: 0,
-      originalPrice: product.base_price || product.price || 0,
+      is_wishlisted: product.is_wishlisted,
+      originalPrice: product.selling_price || 0,
+      stone: product.stone_type ?? 'Unknown',
+      color: product.color ?? 'Unknown',
+      style: product.style ?? 'Unknown',
+      shopFor: product.shop_for ?? 'Unknown',
     }));
   }, [products]);
-
-  // Filter products by price range and selected subcategory
+  
   const filteredProducts = useMemo(() => {
-    let filtered = transformedProducts;
+    return transformedProducts.filter((product) => {
+      if (product.price < priceRange[0] || product.price > priceRange[1]) {
+        return false;
+      }
 
-    // Filter by subcategory if one is selected
-    if (selectedSubcategory !== null) {
-      filtered = filtered.filter((p) => {
-        const product = products.find(
-          (prod: any) => prod.id?.toString() === p.id
-        );
-        return product?.subcategory_id === selectedSubcategory;
-      });
-    }
+      if (
+        selectedSubcategory !== null &&
+        product.subcategoryId !== selectedSubcategory
+      ) {
+        return false;
+      }
 
-    // Filter by price range
-    filtered = filtered.filter((p) => {
-      const price = typeof p.price === 'number' ? p.price : 0;
-      return price >= priceRange[0] && price <= priceRange[1];
+      // Dynamic variant-based filtering
+      const originalProduct = products.find(p => p.id?.toString() === product.id);
+      if (originalProduct && originalProduct.variants) {
+        for (const [filterType, selectedValues] of Object.entries(filters)) {
+          if (selectedValues.length > 0) {
+            const variant = originalProduct.variants.find((v: any) => v.variant_type === filterType);
+            if (variant && variant.type_ids) {
+              const variantValues = variant.type_ids.map((typeId: any) => typeId.value);
+              // OR logic: Show product if it has ANY of the selected values
+              const hasAnyMatchingValue = selectedValues.some(value => variantValues.includes(value));
+              if (!hasAnyMatchingValue) {
+                return false;
+              }
+            } else {
+              // If variant doesn't exist for this filter type, exclude the product
+              return false;
+            }
+          }
+        }
+      }
+
+      return true;
     });
+  }, [transformedProducts, products, priceRange, selectedSubcategory, filters]);
 
-    return filtered;
-  }, [transformedProducts, selectedSubcategory, priceRange, products]);
+  const maxPrice = useMemo(() => {
+    return Math.max(...transformedProducts.map((p) => p.price), 0);
+  }, [transformedProducts]);
 
-  // Sort products
+  useEffect(() => {
+    setPriceRange([0, maxPrice]);
+  }, [maxPrice]);
+
   const sortedProducts = useMemo(() => {
-    const sorted = [...filteredProducts].sort((a, b) => {
-      const priceA = typeof a.price === 'number' ? a.price : 0;
-      const priceB = typeof b.price === 'number' ? b.price : 0;
+    if (sortBy === 'Best Seller') return filteredProducts;
 
-      if (sortBy === 'Price Low to High') return priceA - priceB;
-      if (sortBy === 'Price High to Low') return priceB - priceA;
-      return 0;
-    });
-    return sorted;
+    return [...filteredProducts].sort((a, b) =>
+      sortBy === 'Price Low to High' ? a.price - b.price : b.price - a.price
+    );
   }, [filteredProducts, sortBy]);
+  
+  const handleCheckboxChange = (
+    filterKey: string,
+    value: string
+  ) => {
+    setFilters((prev) => {
+      const currentValues = Array.isArray(prev[filterKey])
+        ? prev[filterKey]
+        : [];
+      return {
+        ...prev,
+        [filterKey]: currentValues.includes(value)
+          ? currentValues.filter((v) => v !== value)
+          : [...currentValues, value],
+      };
+    });
+  };
 
-  // Handle subcategory click
   const handleSubcategoryClick = (subcategoryId: number | null) => {
     setSelectedSubcategory(subcategoryId);
 
-    // Update URL if categoryId exists in path
     const pathParts = window.location.pathname.split('/');
     const categoryIndex = pathParts.findIndex((part) => part === 'category');
 
     if (categoryIndex !== -1 && pathParts[categoryIndex + 1]) {
       const categoryId = pathParts[categoryIndex + 1];
-      if (subcategoryId) {
-        navigate(`/home/category/${categoryId}/subcategory/${subcategoryId}`);
-      } else {
-        navigate(`/home/category/${categoryId}`);
-      }
+      navigate(
+        subcategoryId
+          ? `/home/category/${categoryId}/subcategory/${subcategoryId}`
+          : `/home/category/${categoryId}`
+      );
     }
   };
 
   return (
-    <Box sx={{ width: '100%', minHeight: '100vh' }}>
+    <Box sx={{ width: '100%', minHeight: '100vh', background: 'white' }}>
       {selectedProduct ? (
-        <Box>
-          <ProductBuy />
-        </Box>
+        <ProductBuy />
       ) : (
         <>
+          {/* HEADER */}
           <Box sx={{ mb: 1.5, paddingInline: '5px' }}>
             <Typography
               variant="inherit"
               sx={{
                 color: '#782F3E',
                 fontWeight: 500,
-                fontSize: '20px',
+                fontSize: '28px',
                 fontFamily: 'Roboto Slab',
               }}
             >
-              {categoryDisplayName}{' '}
+              {categoryDisplayName}
               <Typography
                 variant="inherit"
                 component="span"
                 sx={{
                   color: theme.Colors.black,
-                  fontSize: '18px',
+                  fontSize: '20px',
                   fontWeight: 400,
                   fontFamily: 'Roboto Slab',
                 }}
               >
-                | {totalProductCount} Items
+                {' '}
+                | {sortedProducts.length} Items
               </Typography>
             </Typography>
           </Box>
+
+          {/* SUBCATEGORY + SORT */}
           <Box
             sx={{
               display: 'flex',
@@ -196,71 +287,38 @@ const ProductFilter = ({
               borderRadius: '8px',
             }}
           >
-            {/* Subcategory Tabs */}
-            {subcategories.length > 0 && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  gap: 2,
-                  flexWrap: 'wrap',
-                }}
-              >
-                {/* <Typography
-                  onClick={() => handleSubcategoryClick(null)}
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              {subcategories.map((subcategory) => (
+                <Typography
+                  key={subcategory.id}
+                  onClick={() => handleSubcategoryClick(subcategory.id)}
                   sx={{
                     cursor: 'pointer',
                     fontSize: '14px',
                     fontFamily: 'Roboto Slab',
                     fontWeight: 500,
-                    color: selectedSubcategory === null ? '#fff' : '#2D2D2D',
+                    color:
+                      selectedSubcategory === subcategory.id
+                        ? '#fff'
+                        : '#2D2D2D',
                     backgroundColor:
-                      selectedSubcategory === null
+                      selectedSubcategory === subcategory.id
                         ? theme.Colors.primary
                         : 'transparent',
                     border:
-                      selectedSubcategory === null
+                      selectedSubcategory === subcategory.id
                         ? 'none'
                         : '1px solid transparent',
-                    borderRadius: '8px',
-                    padding: '8px 20px',
+                    borderRadius: '4px',
+                    padding: '10px 20px',
                     display: 'inline-block',
                     textAlign: 'center',
                   }}
                 >
-                  All ({transformedProducts.length})
-                </Typography> */}
-                {subcategories.map((subcategory) => (
-                  <Typography
-                    key={subcategory.id}
-                    onClick={() => handleSubcategoryClick(subcategory.id)}
-                    sx={{
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontFamily: 'Roboto Slab',
-                      fontWeight: 500,
-                      color:
-                        selectedSubcategory === subcategory.id
-                          ? '#fff'
-                          : '#2D2D2D',
-                      backgroundColor:
-                        selectedSubcategory === subcategory.id
-                          ? theme.Colors.primary
-                          : 'transparent',
-                      border:
-                        selectedSubcategory === subcategory.id
-                          ? 'none'
-                          : '1px solid transparent',
-                      borderRadius: '4px',
-                      padding: '10px 20px',
-                      display: 'inline-block',
-                      textAlign: 'center',
-                    }}
-                  >
-                    {subcategory.label} ({subcategory.count})
-                  </Typography>
-                ))}
-              </Box>
-            )}
+                  {subcategory.label} ({subcategory.count})
+                </Typography>
+              ))}
+            </Box>
 
             {/* Sort By */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -340,10 +398,10 @@ const ProductFilter = ({
                       display: 'none',
                     },
                     boxShadow: 'none',
-
                     borderBottom: '1px solid #E1E1E1',
                     borderRadius: 0,
                     '&:first-of-type': {
+                      margin: 0,
                       borderTopLeftRadius: '12px',
                       borderTopRightRadius: '12px',
                     },
@@ -354,7 +412,10 @@ const ProductFilter = ({
                     },
                   }}
                 >
-                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <AccordionSummary
+                    sx={{ margin: 0 }}
+                    expandIcon={<ExpandMoreIcon />}
+                  >
                     <Typography
                       style={{
                         fontWeight: 400,
@@ -366,89 +427,107 @@ const ProductFilter = ({
                       Price
                     </Typography>
                   </AccordionSummary>
-                  <AccordionDetails >
-                    <Box sx={{ px: 0.5 }}>
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          // gap: 2,
+                  <AccordionDetails>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flex: 1,
+                        justifyContent: 'space-between',
+                        // gap: 2,
+                      }}
+                    >
+                      <TextInput
+                        size="small"
+                        value={priceRange[0]}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                          const value = Math.min(
+                            Math.max(0, Number(e.target.value)),
+                            priceRange[1] - 1000
+                          );
+                          setPriceRange([value, priceRange[1]]);
                         }}
-                      >
-                        <Grid sx={{ width: '100px', height: '30px' }}>
-                          <TextInput
-                            padding={0.7}
-                            value={priceRange[0]}
-                            height={30}
-                            borderRadius={1}
-                            onChange={(e) =>
-                              setPriceRange([
-                                Number(e.target.value),
-                                priceRange[1],
-                              ])
-                            }
-                            slotProps={{
-                              input: {
-                                startAdornment: (
-                                  <InputAdornment
-                                    position="start"
-                                    sx={{ mr: 0, ml: 2, p: 0, pt: 0.5 }}
-                                  >
-                                    ₹
-                                  </InputAdornment>
-                                ),
-                              },
-                            }}
-                          />
-                        </Grid>
-                        <Grid sx={{ width: '100px', height: '30px' }}>
-                          <TextInput
-                            value={priceRange[1]}
-                            onChange={(e) =>
-                              setPriceRange([
-                                priceRange[0],
-                                Number(e.target.value),
-                              ])
-                            }
-                            borderRadius={1}
-                            padding={0.1}
-                            height={30}
-                            slotProps={{
-                              input: {
-                                startAdornment: (
-                                  <InputAdornment position="start">
-                                    ₹
-                                  </InputAdornment>
-                                ),
-                              },
-                            }}
-                          />
-                        </Grid>
-                      </Box>
-                      <Slider
-                        value={priceRange}
-                        onChange={(_, newValue) =>
-                          setPriceRange(newValue as number[])
-                        }
-                        valueLabelDisplay="auto"
-                        min={0}
-                        max={100000}
+                        slotProps={{
+                          input: {
+                            startAdornment: (
+                              <InputAdornment
+                                position="start"
+                                sx={{ mr: 1, ml: 0, p: 0, pt: 0.5 }}
+                              >
+                                ₹
+                              </InputAdornment>
+                            ),
+                          },
+                        }}
+                        inputProps={{
+                          min: 0,
+                          max: priceRange[1] - 1000,
+                        }}
                         sx={{
-                          color: '#471923',
-                          '& .MuiSlider-thumb': {
-                            backgroundColor: "#471923",
+                          '& .MuiOutlinedInput-root': {
+                            '& fieldset': {
+                              borderColor: theme.Colors.primary,
+                            },
+                            '&:hover fieldset': {
+                              borderColor: theme.Colors.primaryDarkEnd,
+                            },
                           },
-                          '& .MuiSlider-track': {
-                            backgroundColor: theme.Colors.primaryDarkEnd,
-                          },
+                          width: '120px',
                         }}
                       />
+                      <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
+                        <TextInput
+                          size="small"
+                          value={priceRange[1]}
+                          onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                            const value = Math.max(
+                              Number(e.target.value),
+                              priceRange[0] + 1000
+                            );
+                            setPriceRange([priceRange[0], value]);
+                          }}
+                          slotProps={{
+                            input: {
+                              startAdornment: (
+                                <InputAdornment
+                                  position="start"
+                                  sx={{ mr: 1, ml: 0, p: 0, pt: 0.5 }}
+                                >
+                                  ₹
+                                </InputAdornment>
+                              ),
+                            },
+                          }}
+                          inputProps={{
+                            min: priceRange[0] + 1000,
+                            max: 100000,
+                          }}
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              '& fieldset': {
+                                borderColor: theme.Colors.primary,
+                              },
+                              '&:hover fieldset': {
+                                borderColor: theme.Colors.primaryDarkEnd,
+                              },
+                            },
+                            width: '120px',
+                          }}
+                        />
+                      </Box>
                     </Box>
+                    <Slider
+                      value={priceRange}
+                      min={0}
+                      max={maxPrice}
+                      onChange={(_, value) =>
+                        setPriceRange(value as [number, number])
+                      }
+                    />
                   </AccordionDetails>
                 </Accordion>
 
                 {/* Other Filters */}
-                {Object.entries(filterOptions).map(([filterType, options]) => (
+                {Object.entries(dynamicFilterOptions).map(([filterType, options]) => (
                   <Accordion
                     key={filterType}
                     defaultExpanded
@@ -463,13 +542,24 @@ const ProductFilter = ({
                       fontFamily: 'Roboto Slab',
                       color: theme.Colors.black,
                       borderRadius: 0,
+                      '&.MuiAccordion-root.Mui-expanded': {
+                        margin: 0,
+                      },
                       '&:last-of-type': {
                         borderBottomLeftRadius: '12px',
                         borderBottomRightRadius: '12px',
                       },
                     }}
                   >
-                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <AccordionSummary
+                      sx={{
+                        height: '50px',
+                        minHeight: '50px !important',
+                        margin: 0,
+                      }}
+                      expandIcon={<ExpandMoreIcon />}
+                    >
+                      {' '}
                       <Typography
                         style={{
                           fontWeight: 400,
@@ -478,7 +568,7 @@ const ProductFilter = ({
                           color: theme.Colors.black,
                         }}
                       >
-                        {filterType === 'shopFor' ? 'Shop For' : filterType}
+                        {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
                       </Typography>
                     </AccordionSummary>
                     <AccordionDetails>
@@ -488,12 +578,15 @@ const ProductFilter = ({
                             key={option}
                             control={
                               <Checkbox
-                                sx={{
-                                  color: '#2D2D2D',
-                                  '&.Mui-checked': {
-                                    color: theme.Colors.primaryDarkEnd,
-                                  },
-                                }}
+                                checked={
+                                  filters[filterType]?.includes(option) || false
+                                }
+                                onChange={() =>
+                                  handleCheckboxChange(
+                                    filterType,
+                                    option
+                                  )
+                                }
                               />
                             }
                             label={option}
@@ -509,10 +602,10 @@ const ProductFilter = ({
             {/* Right Side - Product Grid */}
             <Grid size={{ xs: 12, md: 9 }}>
               <ProductGrid
-                products={
-                  sortedProducts.length > 0 ? sortedProducts : CardProductData
-                }
+                products={sortedProducts}
+                loading={loading}
                 onProductClick={(product) => setSelectedProduct(product)}
+                onWishlistClick={onWishlistClick}
               />
             </Grid>
           </Grid>

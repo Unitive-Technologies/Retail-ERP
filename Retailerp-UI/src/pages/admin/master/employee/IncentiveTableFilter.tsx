@@ -6,36 +6,21 @@ import {
 import CommonTableFilter from '@components/CommonTableFilter';
 import Grid from '@mui/material/Grid2';
 
+type DropdownOption = {
+  label: string;
+  value: string | number;
+};
+
 type Props = {
   selectItems: any[];
   handleSelectValue: (val: any) => void;
   selectedValue: any[];
   handleFilterClear: () => void;
   edit: any;
+  departmentOptions: DropdownOption[];
+  roleOptions: DropdownOption[];
   isOfferPlan?: boolean;
 };
-
-export const StatusList = [
-  {
-    value: 1,
-    label: 'Active',
-  },
-  {
-    value: 2,
-    label: 'Deactive',
-  },
-];
-
-export const LocationList = [
-  {
-    value: 1,
-    label: 'Salem',
-  },
-  {
-    value: 2,
-    label: 'Madurai',
-  },
-];
 
 const IncentiveTableFilter = ({
   selectItems,
@@ -43,24 +28,29 @@ const IncentiveTableFilter = ({
   selectedValue,
   handleFilterClear,
   edit,
+  departmentOptions,
+  roleOptions,
 }: Props) => {
+
   return (
     <Grid container sx={tableFilterContainerStyle}>
       <Grid size={1.3}>
         <AutoSearchSelectWithLabel
-          options={LocationList}
+          options={departmentOptions}
           placeholder="Department"
           value={edit?.getValue('department')}
-          onChange={(e, value) => edit.update({ department: value })}
+          onChange={(_e, value) => {
+            edit.update({ department: value, role: null });
+          }}
           {...CommonFilterAutoSearchProps}
         />
       </Grid>
       <Grid size={1.3}>
         <AutoSearchSelectWithLabel
-          options={LocationList}
-          placeholder="Designation"
-          value={edit?.getValue('designation')}
-          onChange={(e, value) => edit.update({ designation: value })}
+          options={roleOptions}
+          placeholder="Role"
+          value={edit?.getValue('role')}
+          onChange={(_e, value) => edit.update({ role: value })}
           {...CommonFilterAutoSearchProps}
         />
       </Grid>

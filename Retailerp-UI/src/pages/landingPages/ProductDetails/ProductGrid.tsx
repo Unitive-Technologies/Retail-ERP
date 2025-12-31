@@ -1,33 +1,32 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import ProductCard from '@components/ProductCard';
+import MUHLoader from '@components/MUHLoader';
 import { useNavigate } from 'react-router-dom';
 
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  image: string;
-  category?: string;
-  isNew?: boolean;
-  discount?: number;
-  originalPrice?: number;
-}
-
 interface ProductGridProps {
-  products: Product[];
-
-  onProductClick?: (product: Product) => void;
+  products: any[];
+  loading?: boolean;
+  onProductClick?: (product: any) => void;
+  onWishlistClick?: (productId: number, currentWishlistStatus: boolean) => void;
 }
 
 const ProductGrid: React.FC<ProductGridProps> = ({
   products,
+  loading,
   onProductClick,
+  onWishlistClick,
 }) => {
   const navigate = useNavigate();
 
   const handleProductClick = (productId: string) => {
-    navigate(`/home/earrings/productdetails?id=${productId}`);
+    navigate(
+      `/home/${products[0]?.category
+        .replace(/[^a-z0-9]/g, '')
+        .replace(/-+/g, '')
+        .replace(/^-|-$/g, '')
+        .toLowerCase()}/productdetails?id=${Number(productId)}`
+    );
 
     if (onProductClick) {
       const product = products.find((p) => p.id === productId);
@@ -39,7 +38,9 @@ const ProductGrid: React.FC<ProductGridProps> = ({
 
   return (
     <Box sx={{ width: '100%', minHeight: '100vh' }}>
-      {products.length === 0 ? (
+      {loading ? (
+        <MUHLoader />
+      ) : products.length === 0 ? (
         <Typography
           variant="body1"
           sx={{ textAlign: 'center', mt: 4, color: 'text.secondary' }}
@@ -76,9 +77,16 @@ const ProductGrid: React.FC<ProductGridProps> = ({
               price={product.price}
               image={product.image}
               isNew={product.isNew}
+              is_wishlisted={product.is_wishlisted}
+              imageHeight={300}
+              userId={0} // TODO: Get from auth context
+              productId={Number(product.id)}
+              productItemId={Number(product.product_item_id)}
+              skuId={product.sku_id || 'SKU_' + product.id}
               discount={product.discount}
               originalPrice={product.originalPrice}
               onClick={() => handleProductClick(product.id)}
+              onWishlistClick={onWishlistClick}
             />
           ))}
         </Box>

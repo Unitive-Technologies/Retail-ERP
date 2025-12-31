@@ -105,14 +105,9 @@ const ItemDetailsSection: React.FC<Props> = ({
 
   const generateQRData = useCallback((item: any) => {
     // Generate QR data containing item details (without timestamp to keep it stable)
+    console.log('Generating QR data for item:', item);
     const data = {
       sku_id: item.sku_id,
-      variation: item.combination,
-      weight:
-        item.net_weight && item.quantity
-          ? `${(Number(item.net_weight) * Number(item.quantity)).toFixed(2)} g`
-          : null,
-      quantity: item.quantity,
     };
 
     return JSON.stringify(data);
@@ -559,25 +554,20 @@ const ItemDetailsSection: React.FC<Props> = ({
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    // Try to get QR from existing canvas
-    const qrCanvas = document.querySelector('canvas') as HTMLCanvasElement;
+    // Always generate a fresh QR code with the correct selectedItem data
     let qrImageSrc = '';
 
-    if (qrCanvas) {
-      qrImageSrc = qrCanvas.toDataURL();
-    } else {
-      try {
-        const QRCodeLib = await import('qrcode');
-        const qrData = generateQRData(selectedItem);
-        qrImageSrc = await QRCodeLib.default.toDataURL(qrData, {
-          width: 200,
-          margin: 2,
-          color: { dark: '#000000', light: '#ffffff' },
-        });
-      } catch (error) {
-        console.error('Failed to generate QR code for printing:', error);
-        return;
-      }
+    try {
+      const QRCodeLib = await import('qrcode');
+      const qrData = generateQRData(selectedItem);
+      qrImageSrc = await QRCodeLib.default.toDataURL(qrData, {
+        width: 200,
+        margin: 2,
+        color: { dark: '#000000', light: '#ffffff' },
+      });
+    } catch (error) {
+      console.error('Failed to generate QR code for printing:', error);
+      return;
     }
 
     fetch(Logo)
@@ -766,8 +756,8 @@ const ItemDetailsSection: React.FC<Props> = ({
 
             <!-- Product Info + Logo -->
             <div class="info-section">
-              <div class="product-name">${productName} - ${selectedItem.combination}</div>
-              <div class="sku-id">SKU : ${selectedItem.sku_id}</div>
+              <div class="product-name">${productName}</div>
+              <div class="sku-id">${selectedItem.sku_id}</div>
 
               <div class="logo-section">
                 <img src="${logoDataUrl}" alt="Logo" />

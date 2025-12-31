@@ -9,7 +9,7 @@ type EmployeeProp = {
     employee_no: string;
     employee_name: string;
     department_id: number;
-    designation_id: number;
+    role_id: number;
     joining_date: string;
     employment_type: string;
     gender: string;

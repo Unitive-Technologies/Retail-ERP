@@ -11,6 +11,7 @@ type Props = {
   leftButtonWidth?: string;
   rightButtonWidth?: string;
   disabledRightBtn?: boolean;
+  disabledLeftBtn?: boolean;
   leftButtonColor?: string;
   rightButtonColor?: string;
   leftButtonTextColor?: string;
@@ -29,6 +30,7 @@ const MUHDualActionButton = (props: Props) => {
     leftButtonWidth,
     rightButtonWidth,
     disabledRightBtn,
+    disabledLeftBtn,
     leftButtonColor,
     rightButtonColor,
     leftButtonTextColor,
@@ -52,7 +54,7 @@ const MUHDualActionButton = (props: Props) => {
             btnWidth={leftButtonWidth || '145px'}
             onClick={onLeftButtonClick}
             btnHeight={43}
-            disabled={disabledRightBtn}
+            disabled={disabledLeftBtn}
             buttonStyle={{
               fontFamily: theme.fontFamily.interRegular,
               ...leftButtonStyle,
@@ -67,6 +69,7 @@ const MUHDualActionButton = (props: Props) => {
             buttonText={rightButtonText || t('UserManagement.cancel')}
             buttonTextColor={rightButtonTextColor || theme.Colors.primary}
             btnWidth={rightButtonWidth || '145px'}
+            disabled={disabledRightBtn}
             onClick={onRightButtonClick}
             btnHeight={43}
             buttonStyle={{

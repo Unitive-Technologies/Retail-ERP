@@ -102,6 +102,7 @@ const MUHDatePickerComponent = (props: dateProps) => {
             onOpen={() => {
               if (!isReadOnly) setOpen(true);
             }}
+            disabled={isReadOnly}
             maxDate={maxDate}
             minDate={minDate}
             shouldDisableDate={shouldDisableDate}

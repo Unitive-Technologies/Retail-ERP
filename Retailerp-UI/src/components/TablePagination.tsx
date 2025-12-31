@@ -62,6 +62,7 @@ const TablePagination = ({
       justifyContent={'space-between'}
       px={2.5}
       py={2}
+      className="table-pagination"
     >
       <Grid minWidth={'120px'}>
         <MUHSelectBoxComponent

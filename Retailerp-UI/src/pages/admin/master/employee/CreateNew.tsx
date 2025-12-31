@@ -14,6 +14,9 @@ import { useEffect, useState } from 'react';
 import { EmployeeIncentiveService } from '@services/EmployeeIncentiveService';
 import toast from 'react-hot-toast';
 import TextInputAdornment from '@pages/admin/common/TextInputAdornment';
+import { EmpDepartmentService } from '@services/EmpDepartmentService';
+import { HTTP_STATUSES } from '@constants/Constance';
+import { EmployeeRoleDropdownService } from '@services/EmployeeRoleDropdownService';
 
 const CreateIncentives = () => {
   const theme = useTheme();
@@ -71,127 +74,188 @@ const CreateIncentives = () => {
   useEffect(() => {
     const fetchDropdownData = async () => {
       try {
-        const response = await EmployeeIncentiveService.getAll();
-        if (response?.data?.statusCode === 200) {
-          const { incentives } = response.data.data;
+        const [deptRes, incentiveRes]: any = await Promise.all([
+          EmpDepartmentService.getDepartmentsDropdown(),
+          EmployeeIncentiveService.getAll(),
+        ]);
 
-          const uniqueRoles = Array.from(
-            new Map(
-              incentives.map((i: any) => [
-                i.role_id,
-                { label: i.role_name, value: i.role_id },
-              ])
-            ).values()
-          );
+        const deptData = deptRes?.data ?? deptRes;
+        const departmentsList = Array.isArray(deptData?.data)
+          ? deptData.data
+          : deptData?.data?.departments || [];
 
-          const uniqueDepartments = Array.from(
-            new Map(
-              incentives.map((i: any) => [
-                i.department_id,
-                {
-                  label: i.department_name,
-                  value: i.department_id,
-                  sales_target: normalizeSalesArr(i.sales_target),
-                },
-              ])
-            ).values()
-          );
+        // Get sales targets from existing incentives for departments
+        let departmentSalesTargetMap: Record<number, number[]> = {};
+        if (incentiveRes?.data?.statusCode === 200) {
+          const { incentives } = incentiveRes.data.data;
+          incentives.forEach((i: any) => {
+            if (i.department_id && i.sales_target) {
+              const salesArr = normalizeSalesArr(i.sales_target);
+              if (salesArr.length >= 2) {
+                departmentSalesTargetMap[i.department_id] = salesArr;
+              }
+            }
+          });
+        }
 
+        const formattedDepartments = departmentsList.map((d: any) => ({
+          label: d.name || d.department_name,
+          value: d.id ?? d.department_id,
+          sales_target: departmentSalesTargetMap[d.id ?? d.department_id] || [],
+        }));
+
+        setDepartments(formattedDepartments);
+
+        const defaultIncentiveTypes: DropdownOption[] = [
+          { label: 'Percentage', value: 'Percentage' },
+          { label: 'Rupees', value: 'Rupees' },
+        ];
+
+        if (incentiveRes?.data?.statusCode === 200) {
+          const { incentives } = incentiveRes.data.data;
           const uniqueIncentiveTypes = Array.from(
             new Map(
-              incentives.map((i: any) => [
-                i.incentive_type,
-                { label: i.incentive_type, value: i.incentive_type },
-              ])
+              incentives
+                .map((i: any) => i.incentive_type)
+                .filter((t: any) => String(t).toLowerCase() !== 'amount')
+                .map((t: any) => [t, { label: t, value: t }])
             ).values()
-          );
+          ) as DropdownOption[];
 
-          setRoles(uniqueRoles);
-          setDepartments(uniqueDepartments);
-          setIncentiveTypes(uniqueIncentiveTypes);
-
-          if (rowData && Object.keys(rowData).length) {
-            const roleOpt =
-              uniqueRoles.find((r) => r.value === rowData.role_id) ||
-              uniqueRoles.find((r) => r.label === rowData.role) ||
-              '';
-
-            let deptOpt =
-              uniqueDepartments.find(
-                (d) => d.value === rowData.department_id
-              ) ||
-              uniqueDepartments.find((d) => d.label === rowData.department);
-
-            if (!deptOpt && rowData.department_id) {
-              deptOpt = {
-                label:
-                  rowData.department_name ||
-                  rowData.department ||
-                  `Dept ${rowData.department_id}`,
-                value: rowData.department_id,
-                sales_target: Array.isArray(rowData.sales_target)
-                  ? rowData.sales_target
-                  : (() => {
-                      try {
-                        if (
-                          typeof rowData.sales_target === 'string' &&
-                          rowData.sales_target.trim().startsWith('[')
-                        ) {
-                          return JSON.parse(rowData.sales_target);
-                        }
-                      } catch {
-                        /* ignore */
-                      }
-                      return undefined;
-                    })(),
-              };
+          const allTypes = [...defaultIncentiveTypes];
+          uniqueIncentiveTypes.forEach((type) => {
+            if (!allTypes.find((t) => t.value === type.value)) {
+              allTypes.push(type);
             }
+          });
+          setIncentiveTypes(allTypes);
+        } else {
+          setIncentiveTypes(defaultIncentiveTypes);
+        }
 
-            const incTypeOpt =
-              uniqueIncentiveTypes.find(
-                (t) => t.value === rowData.incentive_type
-              ) || '';
+        if (rowData && Object.keys(rowData).length) {
+          let deptOpt =
+            formattedDepartments.find(
+              (d: any) => d.value === rowData.department_id
+            ) ||
+            formattedDepartments.find(
+              (d: any) => d.label === rowData.department
+            );
 
-            const deptSales = deptOpt
-              ? normalizeSalesArr((deptOpt as any).sales_target)
-              : [];
-            const rowSales = normalizeSalesArr(rowData.sales_target);
-
-            const salesArr = rowSales.length ? rowSales : deptSales;
-
-            const salesOpt =
-              Array.isArray(salesArr) && salesArr.length >= 2
-                ? {
-                    label: `₹ ${Number(salesArr[0]).toLocaleString()} - ₹ ${Number(
-                      salesArr[1]
-                    ).toLocaleString()}`,
-                    value: JSON.stringify(salesArr),
-                    sales_target: salesArr,
-                  }
-                : '';
-
-            setSalesTargets(salesOpt ? [salesOpt] : []);
-
-            const formattedMin =
-              Array.isArray(salesArr) && salesArr[0] != null
-                ? Number(salesArr[0]).toLocaleString('en-IN')
-                : '';
-            const formattedMax =
-              Array.isArray(salesArr) && salesArr[1] != null
-                ? Number(salesArr[1]).toLocaleString('en-IN')
-                : '';
-
-            const updates: any = {
-              role: roleOpt,
-              department: deptOpt || '',
-              salesTarget: salesOpt || '',
-              salesTargetMin: formattedMin,
-              salesTargetMax: formattedMax,
-              incentiveType: incTypeOpt,
-              incentiveValue: rowData?.incentive_value?.toString?.() || '',
+          if (!deptOpt && rowData.department_id) {
+            deptOpt = {
+              label:
+                rowData.department_name ||
+                rowData.department ||
+                `Dept ${rowData.department_id}`,
+              value: rowData.department_id,
+              sales_target: Array.isArray(rowData.sales_target)
+                ? rowData.sales_target
+                : (() => {
+                    try {
+                      if (
+                        typeof rowData.sales_target === 'string' &&
+                        rowData.sales_target.trim().startsWith('[')
+                      ) {
+                        return JSON.parse(rowData.sales_target);
+                      }
+                    } catch {
+                      /* ignore */
+                    }
+                    return undefined;
+                  })(),
             };
-            edit.update(updates);
           }
+
+          let roleOpt: DropdownOption | '' = '';
+          if (rowData.department_id) {
+            try {
+              const rolesRes: any =
+                await EmployeeRoleDropdownService.getDropdown({
+                  department_id: Number(rowData.department_id),
+                });
+              if (
+                rolesRes?.status < HTTP_STATUSES.BAD_REQUEST &&
+                Array.isArray(rolesRes.data.data?.roles)
+              ) {
+                const roleOptions: DropdownOption[] =
+                  rolesRes.data.data.roles.map((role: any) => ({
+                    label: role.name,
+                    value: Number(role.id),
+                  }));
+                setRoles(roleOptions);
+                const foundRole =
+                  roleOptions.find((r: any) => r.value === rowData.role_id) ||
+                  roleOptions.find((r: any) => r.label === rowData.role);
+                roleOpt = foundRole || '';
+              }
+            } catch (err) {
+              console.error('[CreateNew] Error fetching roles for edit:', err);
+            }
+          }
+
+          const currentIncentiveTypes =
+            incentiveRes?.data?.statusCode === 200
+              ? (() => {
+                  const { incentives } = incentiveRes.data.data;
+                  return Array.from(
+                    new Map(
+                      incentives.map((i: any) => [
+                        i.incentive_type,
+                        { label: i.incentive_type, value: i.incentive_type },
+                      ])
+                    ).values()
+                  );
+                })()
+              : [
+                  { label: 'Percentage', value: 'Percentage' },
+                  { label: 'Amount', value: 'Amount' },
+                ];
+
+          const incTypeOpt =
+            currentIncentiveTypes.find(
+              (t: any) => t.value === rowData.incentive_type
+            ) || '';
+
+          const deptSales = deptOpt
+            ? normalizeSalesArr((deptOpt as any).sales_target)
+            : [];
+          const rowSales = normalizeSalesArr(rowData.sales_target);
+
+          const salesArr = rowSales.length ? rowSales : deptSales;
+
+          const salesOpt =
+            Array.isArray(salesArr) && salesArr.length >= 2
+              ? {
+                  label: `₹ ${Number(salesArr[0]).toLocaleString()} - ₹ ${Number(
+                    salesArr[1]
+                  ).toLocaleString()}`,
+                  value: JSON.stringify(salesArr),
+                  sales_target: salesArr,
+                }
+              : '';
+
+          setSalesTargets(salesOpt ? [salesOpt] : []);
+
+          const formattedMin =
+            Array.isArray(salesArr) && salesArr[0] != null
+              ? Number(salesArr[0]).toLocaleString('en-IN')
+              : '';
+          const formattedMax =
+            Array.isArray(salesArr) && salesArr[1] != null
+              ? Number(salesArr[1]).toLocaleString('en-IN')
+              : '';
+
+          const updates: any = {
+            role: roleOpt,
+            department: deptOpt || '',
+            salesTarget: salesOpt || '',
+            salesTargetMin: formattedMin,
+            salesTargetMax: formattedMax,
+            incentiveType: incTypeOpt,
+            incentiveValue: rowData?.incentive_value?.toString?.() || '',
+          };
+          edit.update(updates);
         }
       } catch (err) {
         console.error('Error fetching dropdowns:', err);
@@ -202,43 +266,84 @@ const CreateIncentives = () => {
     fetchDropdownData();
   }, []);
 
+  useEffect(() => {
+    const departmentValue = edit.getValue('department');
+    const departmentId = departmentValue
+      ? Number(departmentValue?.value ?? departmentValue)
+      : null;
+
+    if (!departmentId) {
+      setRoles([]);
+      return;
+    }
+
+    const fetchRolesForDepartment = async (deptId: number) => {
+      try {
+        const res: any = await EmployeeRoleDropdownService.getDropdown({
+          department_id: deptId,
+        });
+        if (
+          res?.status < HTTP_STATUSES.BAD_REQUEST &&
+          Array.isArray(res.data.data?.roles)
+        ) {
+          const options: DropdownOption[] = res.data.data.roles.map(
+            (role: any) => ({
+              label: role.name,
+              value: Number(role.id),
+            })
+          );
+          setRoles(options);
+          console.log('[CreateNew] Role Options:', options);
+        } else {
+          setRoles([]);
+        }
+      } catch (err) {
+        console.error('[CreateNew] Error fetching roles:', err);
+        setRoles([]);
+      }
+    };
+
+    fetchRolesForDepartment(departmentId);
+  }, [edit?.getValue('department')]);
+
   const handleDropdownChange = (
     field: string,
     value: DropdownOption | null
   ) => {
-    if (field === 'department' && value) {
-      const salesArr = value.sales_target ?? [];
+    if (field === 'department') {
+      if (value) {
+        const salesArr = value.sales_target ?? [];
 
-      const salesOptions: DropdownOption[] = [];
+        const salesOptions: DropdownOption[] = [];
 
-      if (Array.isArray(salesArr) && salesArr.length >= 2) {
-        salesOptions.push({
-          label: `₹ ${Number(salesArr[0]).toLocaleString()} - ₹ ${Number(
-            salesArr[1]
-          ).toLocaleString()}`,
-          value: JSON.stringify(salesArr),
-          sales_target: salesArr,
-        });
+        if (Array.isArray(salesArr) && salesArr.length >= 2) {
+          salesOptions.push({
+            label: `₹ ${Number(salesArr[0]).toLocaleString()} - ₹ ${Number(
+              salesArr[1]
+            ).toLocaleString()}`,
+            value: JSON.stringify(salesArr),
+            sales_target: salesArr,
+          });
+        }
 
-        const formattedMin = Number(salesArr[0]).toLocaleString('en-IN');
-        const formattedMax = Number(salesArr[1]).toLocaleString('en-IN');
-
-        const updates: any = {
-          salesTargetMin: formattedMin,
-          salesTargetMax: formattedMax,
-        };
-        updates['department'] = value;
-        updates['salesTarget'] = salesOptions[0] || '';
-        edit.update(updates);
-      } else {
         edit.update({
           department: value,
           salesTargetMin: '',
           salesTargetMax: '',
           salesTarget: '',
         });
+        setSalesTargets(salesOptions);
+      } else {
+        // Department cleared
+        edit.update({
+          department: null,
+          salesTargetMin: '',
+          salesTargetMax: '',
+          salesTarget: '',
+        });
+        setSalesTargets([]);
       }
-      setSalesTargets(salesOptions);
+      return;
     }
 
     if (field !== 'department') {
@@ -300,6 +405,23 @@ const CreateIncentives = () => {
       sales_target
     );
 
+    const roleValue = edit.getValue('role')?.value;
+    const departmentValue = edit.getValue('department')?.value;
+    const incentiveTypeOption = edit.getValue('incentiveType');
+    const incentiveTypeValue =
+      incentiveTypeOption?.value || incentiveTypeOption;
+
+    const roleId = roleValue ? Number(roleValue) : null;
+    const departmentId = departmentValue ? Number(departmentValue) : null;
+    const incentiveTypeRaw = incentiveTypeValue;
+    const isPercentageType =
+      String(incentiveTypeRaw).toLowerCase() === 'percentage';
+
+    const incentiveType =
+      String(incentiveTypeRaw).toLowerCase() === 'amount'
+        ? 'Rupees'
+        : incentiveTypeRaw;
+
     const minStr = edit.getValue('salesTargetMin') || '';
     const maxStr = edit.getValue('salesTargetMax') || '';
     const parseNum = (s: string) =>
@@ -307,34 +429,58 @@ const CreateIncentives = () => {
     const minNum = parseNum(minStr);
     const maxNum = parseNum(maxStr);
     if (!isNaN(minNum) && !isNaN(maxNum)) {
-      sales_target = minNum <= maxNum ? [minNum, maxNum] : [maxNum, minNum];
+      // Check if min and max are the same value
+      if (minNum === maxNum) {
+        toast.error('Sales Target Min and Max values cannot be the same.');
+        return;
+      }
+      sales_target = minNum < maxNum ? [minNum, maxNum] : [maxNum, minNum];
       console.log(
         '[CreateNew] sales_target overridden by manual inputs:',
         sales_target
       );
     }
 
-    const payload = {
-      role_id: edit.getValue('role')?.value,
-      department_id: edit.getValue('department')?.value,
-      incentive_type: edit.getValue('incentiveType')?.value,
-      incentive_value: isNaN(incentiveValue) ? NaN : incentiveValue,
-      sales_target,
-    };
+    const incentiveValueStr = isNaN(incentiveValue)
+      ? ''
+      : String(incentiveValue);
+    const incentiveValueNum = parseFloat(incentiveValueStr);
 
+    // Validate all fields
     if (
-      !payload.role_id ||
-      !payload.department_id ||
-      !payload.incentive_type ||
-      typeof payload.incentive_value !== 'number' ||
-      isNaN(payload.incentive_value) ||
-      payload.incentive_value <= 0 ||
-      !Array.isArray(payload.sales_target) ||
-      payload.sales_target.length === 0
+      !roleId ||
+      !departmentId ||
+      !incentiveType ||
+      !incentiveValueStr ||
+      isNaN(incentiveValueNum) ||
+      incentiveValueNum <= 0 ||
+      (isPercentageType &&
+        (!Array.isArray(sales_target) || sales_target.length === 0))
     ) {
       toast.error('Please fill all required fields.');
       return;
     }
+
+    // Ensure sales_target has exactly 2 different values
+    let finalSalesTarget: number[] = [];
+    if (Array.isArray(sales_target) && sales_target.length === 2) {
+      const [val1, val2] = sales_target;
+      if (val1 !== val2 && !isNaN(val1) && !isNaN(val2)) {
+        // Ensure min is first, max is second
+        finalSalesTarget = val1 < val2 ? [val1, val2] : [val2, val1];
+      } else if (val1 === val2) {
+        toast.error('Sales Target Min and Max values cannot be the same.');
+        return;
+      }
+    }
+
+    const payload = {
+      role_id: roleId,
+      department_id: departmentId,
+      incentive_type: incentiveType,
+      incentive_value: incentiveValueNum,
+      sales_target: finalSalesTarget,
+    };
 
     try {
       if (type === 'edit' && rowData?.id) {
@@ -344,7 +490,11 @@ const CreateIncentives = () => {
           failureMessage: 'Failed to update incentive.',
         });
 
-        if (response?.status === 200 || response?.data?.statusCode === 200) {
+        if (
+          (response as any)?.status === 200 ||
+          (response as any)?.data?.statusCode === 200
+        ) {
+          localStorage.setItem('employee-selected-tab', '2');
           navigate('/admin/master/employee');
         }
       } else {
@@ -354,7 +504,11 @@ const CreateIncentives = () => {
           failureMessage: 'Failed to create incentive.',
         });
 
-        if (response?.status === 201 || response?.data?.statusCode === 201) {
+        if (
+          (response as any)?.status === 201 ||
+          (response as any)?.data?.statusCode === 201
+        ) {
+          localStorage.setItem('employee-selected-tab', '2');
           navigate('/admin/master/employee');
         }
       }

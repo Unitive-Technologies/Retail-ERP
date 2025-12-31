@@ -2,7 +2,13 @@ import { Box, Typography, IconButton, useTheme } from '@mui/material';
 import InstagramIcon from '@mui/icons-material/Instagram';
 import YouTubeIcon from '@mui/icons-material/YouTube';
 import Grid from '@mui/material/Grid2';
-import { FacebookIcon2, InstagramIcon2, LandingAppbarLogo, ProjectNameLogo, YoutubeIcon2 } from '@assets/Images';
+import {
+  FacebookIcon2,
+  InstagramIcon2,
+  LandingAppbarLogo,
+  ProjectNameLogo,
+  YoutubeIcon2,
+} from '@assets/Images';
 import {
   FacebookOutlined,
   MarkEmailReadOutlined,
@@ -11,15 +17,31 @@ import {
 import LinkTextSection from './LinkTextSection';
 import { CSSProperties } from 'react';
 import MUHTypography from '@components/MUHTypography';
+import { useNavigate } from 'react-router-dom';
 
 const Footer = () => {
   const theme = useTheme();
+  const navigate = useNavigate();
 
-  const iconBoxStyle: CSSProperties = {
+  const iconBoxStyle = {
+    height: '50px',
+    width: '50px',
     background: `linear-gradient(90deg, ${theme.Colors.primaryDarkStart} 0%, ${theme.Colors.primaryDarkEnd} 100%)`,
+    [theme.breakpoints.down('md')]: {
+      width: '30px',
+      height: '30px',
+    },
   };
 
-  const iconStyle: CSSProperties = { color: theme.Colors.whitePrimary };
+  const iconStyle: CSSProperties = {
+    color: theme.Colors.whitePrimary,
+    height: '30px',
+    width: '30px',
+  };
+
+  const handleLogoClick = () => {
+    navigate('/home');
+  };
 
   return (
     <Box
@@ -44,13 +66,22 @@ const Footer = () => {
           <Grid size={{ xs: 12, sm: 12, md: 2.6 }}>
             <Grid
               container
+              onClick={handleLogoClick}
               sx={{
-                py: 1.8,
-                width: { xs: '60%', md: '83%' },
+                [theme.breakpoints.down('md')]: {
+                  py: 0,
+                },
+                flexWrap: 'nowrap',
+                width: { xs: '65%', sm: '30%', md: '93%', xl: '60%' },
                 borderRadius: { xs: '8.78px', md: '12px' },
                 background: GRADIENT_BG,
                 alignItems: 'center',
                 justifyContent: 'center',
+                cursor: 'pointer',
+                '&:hover': {
+                  opacity: 0.8,
+                  transition: 'opacity 0.3s ease',
+                },
               }}
             >
               <img
@@ -71,6 +102,9 @@ const Footer = () => {
                   fontWeight: 500,
                   color: '#1F1F29',
                   fontFamily: 'Roboto Slab',
+                  [theme.breakpoints.down('md')]: {
+                    fontSize: '14px',
+                  },
                 }}
               >
                 Follow Us On
@@ -93,6 +127,17 @@ const Footer = () => {
             <LinkTextSection
               title="Pick Your Perfect Bling"
               linkTexts={billing}
+              titleSx={{
+                fontFamily: 'Roboto slab',
+                [theme.breakpoints.down('md')]: {
+                  fontSize: '14px',
+                },
+              }}
+              linkTextStyle={{
+                [theme.breakpoints.down('md')]: {
+                  fontSize: '12px',
+                },
+              }}
             />
           </Grid>
 
@@ -100,11 +145,36 @@ const Footer = () => {
             <LinkTextSection
               title="Client Relations"
               linkTexts={clientRelations}
+              titleSx={{
+                fontFamily: 'Roboto slab',
+                [theme.breakpoints.down('md')]: {
+                  fontSize: '14px',
+                },
+              }}
+              linkTextStyle={{
+                [theme.breakpoints.down('md')]: {
+                  fontSize: '12px',
+                },
+              }}
             />
           </Grid>
 
           <Grid display={{ xs: 'none', md: 'block' }} size={1.8}>
-            <LinkTextSection title="About Us" linkTexts={about} />
+            <LinkTextSection
+              title="About Us"
+              linkTexts={about}
+              titleSx={{
+                fontFamily: 'Roboto slab',
+                [theme.breakpoints.down('md')]: {
+                  fontSize: '14px',
+                },
+              }}
+              linkTextStyle={{
+                [theme.breakpoints.down('md')]: {
+                  fontSize: '12px',
+                },
+              }}
+            />
           </Grid>
 
           <Grid
@@ -115,9 +185,34 @@ const Footer = () => {
             <LinkTextSection
               title="Client Relations"
               linkTexts={clientRelations}
+              titleSx={{
+                fontFamily: 'Roboto slab',
+                [theme.breakpoints.down('md')]: {
+                  fontSize: '14px',
+                },
+              }}
+              linkTextStyle={{
+                [theme.breakpoints.down('md')]: {
+                  fontSize: '12px',
+                },
+              }}
             />
             <Box mt={{ xs: 2, md: 0 }}>
-              <LinkTextSection title="About Us" linkTexts={about} />
+              <LinkTextSection
+                title="About Us"
+                linkTexts={about}
+                titleSx={{
+                  fontFamily: 'Roboto slab',
+                  [theme.breakpoints.down('md')]: {
+                    fontSize: '14px',
+                  },
+                }}
+                linkTextStyle={{
+                  [theme.breakpoints.down('md')]: {
+                    fontSize: '12px',
+                  },
+                }}
+              />
             </Box>
           </Grid>
 
@@ -139,16 +234,34 @@ const Footer = () => {
                 size={16}
                 weight={600}
                 color="#1F1F29"
+                sx={{
+                  fontFamily: 'Roboto Slab',
+                  [theme.breakpoints.down('md')]: {
+                    fontSize: '12px',
+                  },
+                }}
               />
               <MUHTypography
                 text="74/1, W Ponnurangam Rd, R.S. Puram Coimbatore"
                 size={16}
                 color="#1F1F29"
+                sx={{
+                  fontFamily: 'Roboto Slab',
+                  [theme.breakpoints.down('md')]: {
+                    fontSize: '12px',
+                  },
+                }}
               />
               <MUHTypography
                 text="Tamil Nadu - 641 002"
                 size={16}
                 color="#1F1F29"
+                sx={{
+                  fontFamily: 'Roboto Slab',
+                  [theme.breakpoints.down('md')]: {
+                    fontSize: '12px',
+                  },
+                }}
               />
               <Box display={'flex'} gap={1} alignItems={'center'}>
                 <PhoneInTalk sx={{ fontSize: '16px', color: '#59212D' }} />
@@ -156,6 +269,12 @@ const Footer = () => {
                   text="+91 7010794728"
                   size={16}
                   color="#1F1F29"
+                  sx={{
+                    fontFamily: 'Roboto Slab',
+                    [theme.breakpoints.down('md')]: {
+                      fontSize: '12px',
+                    },
+                  }}
                 />
               </Box>
               <Box display={'flex'} gap={1} alignItems={'center'}>
@@ -165,6 +284,12 @@ const Footer = () => {
                 <MUHTypography
                   text="chaneirajewels@gmail.com"
                   size={16}
+                  sx={{
+                    fontFamily: 'Roboto Slab',
+                    [theme.breakpoints.down('md')]: {
+                      fontSize: '12px',
+                    },
+                  }}
                   color="#1F1F29"
                 />
               </Box>

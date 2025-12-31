@@ -19,7 +19,7 @@ import {
   WhitePendingIcon,
 } from '@assets/Images';
 import { CONFIRM_MODAL } from '@constants/Constance';
-import { PurchaseData } from '@constants/DummyData';
+import { PurchaseOrderService } from '@services/PurchaseOrderService';
 import { useTheme, Avatar, Box, Typography } from '@mui/material';
 import PurchaseTableFilter from './PurchaseTableFilter';
 
@@ -134,7 +134,7 @@ const PurchaseList = () => {
           sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '100%' }}
         >
           <Avatar
-            src={row.vendor_logo || GoldenPlanImages}
+            src={row.vendor_image_url}
             alt={row.vendor_name}
             sx={{ width: 28, height: 28 }}
           />
@@ -146,13 +146,14 @@ const PurchaseList = () => {
     },
 
     {
-      field: 'weight',
+      field: 'ordered_weight',
       headerName: 'Weight',
       flex: 0.8,
       sortable: false,
       disableColumnMenu: true,
       headerAlign: 'left',
       align: 'left',
+      renderCell: ({ row }: any) => Number(row.ordered_weight) + ' g',
     },
     {
       field: 'created_by',
@@ -270,11 +271,13 @@ const PurchaseList = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      setOfferData(PurchaseData); //TODO: need to call backend api
+      const response: any = await PurchaseOrderService.getAll();
+      const data = response?.data?.data.data || [];
+      setOfferData(data);
     } catch (err: any) {
       setLoading(false);
       setOfferData([]);
-      toast.error(err?.message);
+      toast.error(err?.message || 'Failed to fetch purchase orders');
       console.log(err, 'err');
     } finally {
       setLoading(false);

@@ -109,6 +109,21 @@ const formatCurrency = (value?: string | number | null): string => {
   })}`;
 };
 
+const formatAmount = (value: number | string) => {
+  if (value === null || value === undefined || value === '') return '₹0.00';
+
+  const str = String(value);
+
+  const [intPart, decPart = ''] = str.split('.');
+
+  const formattedInt = Number(intPart).toLocaleString('en-IN');
+  const trimmedDec = decPart.replace(/0+$/, '');
+  const finalDec = trimmedDec.padEnd(2, '0');
+
+  return `₹${formattedInt}.${finalDec}`;
+};
+
+
 const formatNumber = (value?: string | number | null): string => {
   const num = parseFloat(value as string) || 0;
   return num % 1 === 0 ? num.toFixed(0) : num.toFixed(3);
@@ -251,7 +266,7 @@ const ViewGrn: React.FC<ViewGrnProps> = ({
       cgstPercentage: `${cgstPercent}%`,
       cgstAmount: formatCurrency((subtotal * cgstPercent) / 100),
       discountPercentage: `${discountPercent}%`,
-      discountAmount: formatCurrency((subtotal * discountPercent) / 100),
+      discountAmount: formatCurrency(discountPercent),
       totalAmount: formatCurrency(totalAmount),
       totalOrderedWeight: formatNumber(totals.grossWt),
       totalReceivedWeight: formatNumber(totals.netWt),
@@ -307,7 +322,7 @@ const ViewGrn: React.FC<ViewGrnProps> = ({
     category: item.category_name || '',
     sub_category: item.subcategory_name || '',
     purity: item.purity ? `${item.purity}%` : '',
-    material_price: formatCurrency(item.material_price_per_g),
+    material_price: formatAmount(item.material_price_per_g),
     type: item.type || '',
     quantity: formatNumber(item.quantity),
     gross_weight: formatNumber(item.gross_wt_in_g),
@@ -316,20 +331,20 @@ const ViewGrn: React.FC<ViewGrnProps> = ({
     others_weight: formatNumber(item.others_wt_in_g),
     others_value: formatCurrency(item.others_value),
     net_weight: formatNumber(item.net_wt_in_g),
-    purchase_rate: formatCurrency(item.purchase_rate),
+    purchase_rate:formatAmount(item.purchase_rate), 
     stone_rate: formatCurrency(item.stone_rate),
-    making_charge: formatCurrency(item.making_charge),
+    making_charge: formatAmount(item.making_charge),
     rate_per_gram: formatCurrency(item.rate_per_g),
     amount: formatCurrency(item.total_amount),
   }));
 
   const companyData = {
-    address1: header?.billing_address || '',
-    address2: header?.shipping_address || '',
-    city: '',
-    state: '',
-    mobile: '',
-    gstin: header?.gst_no || '',
+    address1: '74/1, W Poonurangam Rd',
+    address2: 'R S Puram',
+    city: 'Coimbatore',
+    state: 'Tamil Nadu - 641002',
+    mobile: '96545 569368',
+    gstin: '33SSSCE563AIH',
   };
 
   const supplierData = {
@@ -366,7 +381,7 @@ const ViewGrn: React.FC<ViewGrnProps> = ({
       ) : (
         computedSummary && (
           <PurchaseCommonView
-            title="CHANIERA JEWELS"
+            title="CHANEIRA JEWELS"
             Subtitle="Goods Received Notes"
             dateLabel="Date"
             grnNoLabel="GRN No"
@@ -378,6 +393,7 @@ const ViewGrn: React.FC<ViewGrnProps> = ({
             columnSizes={columnSizes}
             showPaymentDetails={false}
             companyData={companyData}
+            state={viewData?.header.vendor_state}
             supplierData={supplierData}
             grnDetails={grnDetails}
             grnItems={grnItems}

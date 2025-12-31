@@ -4,6 +4,7 @@ import { GridColDef } from '@mui/x-data-grid';
 import { CONFIRM_MODAL, HTTP_STATUSES } from '@constants/Constance';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import dayjs from 'dayjs';
 import {
   DeactiveIcon,
   RowEditIcon,
@@ -137,6 +138,11 @@ const EmployeeList = () => {
       flex: 1.2,
       sortable: false,
       disableColumnMenu: true,
+      renderCell: (params) => {
+        const date = params.row.joining_date;
+        if (!date) return '-';
+        return dayjs(date).format('DD/MM/YYYY');
+      },
     },
     {
       field: 'status',

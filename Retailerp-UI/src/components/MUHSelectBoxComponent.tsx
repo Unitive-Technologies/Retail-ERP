@@ -28,7 +28,11 @@ const textTypoStyle = {
 };
 
 type Props = SelectProps & {
-  selectItems?: Array<{ value: number | string; label: number | string }>;
+  selectItems?: Array<{
+    value: number | string;
+    label: number | string;
+    icon?: React.ReactNode;
+  }>;
   variant?: 'standard' | 'outlined' | 'filled';
   multiple?: boolean;
   value?: number | string | any;
@@ -82,6 +86,7 @@ const MUHSelectBoxComponent = React.memo(function MUHSelectBoxComponent(
     value,
     onChange,
     selectBoxStyle,
+    isPlaceholderNone = false,
     isError = false,
     borderColor,
     helperText,
@@ -232,9 +237,10 @@ const MUHSelectBoxComponent = React.memo(function MUHSelectBoxComponent(
                   maxHeight: 240,
                   overflowY: 'auto',
                   background: theme.Colors.whitePrimary,
-                  '&::-webkit-scrollbar': {
-                    width: 0,
-                  },
+                  
+                  //     '&::-webkit-scrollbar': {
+                  //   width: 0,
+                  // },
                   '& .MuiList-root.MuiMenu-list': {
                     paddingTop: 0,
                   },
@@ -460,7 +466,9 @@ const MUHSelectBoxComponent = React.memo(function MUHSelectBoxComponent(
                   },
                 }}
               >
-                <ListItemIcon sx={{ alignItems: 'center', minWidth: 0 }}>
+                <ListItemIcon
+                  sx={{ alignItems: 'center', minWidth: item.icon ? 40 : 0 }}
+                >
                   {isCheckbox && (
                     <Checkbox
                       checked={
@@ -470,6 +478,11 @@ const MUHSelectBoxComponent = React.memo(function MUHSelectBoxComponent(
                       }
                       size="small"
                     />
+                  )}
+                  {item.icon && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                      {item.icon}
+                    </Box>
                   )}
                   <ListItemText
                     primary={item.label}

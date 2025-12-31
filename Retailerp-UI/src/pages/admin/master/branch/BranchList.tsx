@@ -9,11 +9,17 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { RowEditIcon, RowViewIcon } from '@assets/Images';
 import PageHeader from '@components/PageHeader';
+import MenuDropDown from '@components/MUHMenuDropDown';
 import toast from 'react-hot-toast';
 import { useEdit } from '@hooks/useEdit';
 import MUHListItemCell from '@components/MUHListItemCell';
 import { useTheme } from '@mui/material';
 import { API_SERVICES } from '@services/index';
+import {
+  PDF_TITLE,
+  BRANCH_LIST_COLUMN_MAPPING,
+  BRANCH_LIST_PDF_HEADERS,
+} from '@constants/PdfConstants';
 
 const BranchList = () => {
   const theme = useTheme();
@@ -22,6 +28,7 @@ const BranchList = () => {
   const [confirmModalOpen, setConfirmModalOpen] = useState({ open: false });
   const [branchData, setBranchData] = useState<object[]>([]);
   const [hiddenColumns, setHiddenColumns] = useState<any[]>([]);
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
 
   const initialValues = {
     status: 0,
@@ -41,8 +48,14 @@ const BranchList = () => {
       headerAlign: 'left',
       align: 'center',
       renderCell: (params: any) => {
-        const index = params.api.getSortedRowIds().indexOf(params.id); // Get visible index
-        const serialNumber = index + 1;
+        // Find the row's index in the full branchData array to get correct serial number across pages
+        const fullIndex = branchData.findIndex(
+          (row: any) => row.id === params.row.id
+        );
+        const serialNumber =
+          fullIndex >= 0
+            ? fullIndex + 1
+            : params.api.getSortedRowIds().indexOf(params.id) + 1;
         return <span>{serialNumber}</span>;
       },
     },
@@ -60,10 +73,6 @@ const BranchList = () => {
       sortable: false,
       disableColumnMenu: true,
       renderCell: ({ row }: { row: any }) => {
-        const params = new URLSearchParams({
-          type: 'view',
-          rowId: String(row?.id ?? ''),
-        }).toString();
         return (
           <MUHListItemCell
             title={row.branch_name}
@@ -122,6 +131,32 @@ const BranchList = () => {
     },
   ];
 
+  // Use constants from PdfConstants
+  const columnMapping = BRANCH_LIST_COLUMN_MAPPING;
+  const pdfHeaders = BRANCH_LIST_PDF_HEADERS;
+  const fileName = PDF_TITLE.branchList;
+
+  // Transform data for PDF export (format location from district_name to label)
+  const pdfData: any = branchData?.length
+    ? branchData.map((rowData: any, index: number) => {
+        const raw = rowData?.district_name;
+        const match = DistrictListBranch.find(
+          (d: any) => String(d.value) === String(raw)
+        );
+        const locationLabel = match?.label || String(raw || '');
+
+        return {
+          s_no: index + 1,
+          branch_no: rowData?.branch_no || '-',
+          branch_name: rowData?.branch_name || '-',
+          location: locationLabel,
+          contact_person: rowData?.contact_person || '-',
+          mobile: rowData?.mobile || '-',
+          status: rowData?.status || '-',
+        };
+      })
+    : [];
+
   const handleCustomizeColumn = (hiddenColumns: string[]) => {
     setHiddenColumns([...hiddenColumns]);
   };
@@ -143,6 +178,14 @@ const BranchList = () => {
   const handleFilterClear = () => {
     edit.reset();
     setHiddenColumns([]);
+  };
+
+  const handleOpenDownloadMenu = (e: any) => {
+    setMenuAnchorEl(e.currentTarget as HTMLElement);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuAnchorEl(null);
   };
 
   const handleEditUser = (rowData: any, type: string) => {
@@ -223,8 +266,34 @@ const BranchList = () => {
         count={branchData.length}
         btnName="Create Branch"
         navigateUrl="/admin/master/branch/form?type=create"
+        onDownloadClick={handleOpenDownloadMenu}
+        onPrintClick={() => window.print()}
       />
-      <Grid container sx={contentLayout}>
+      <Grid container sx={contentLayout} className="print-area">
+        <div className="print-only" style={{ width: '100%', marginBottom: 12 }}>
+          <div
+            style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: '#000',
+              // borderBottom: '1px solid #ddd',
+              paddingBottom: 8,
+              marginBottom: 8,
+            }}
+          >
+            Branch List ({branchData.length})
+          </div>
+        </div>
+        <MenuDropDown
+          anchorEl={menuAnchorEl}
+          handleCloseMenu={handleCloseMenu}
+          hiddenCols={hiddenColumns}
+          columnMapping={columnMapping}
+          pdfData={pdfData}
+          pdfHeaders={pdfHeaders}
+          fileName={fileName}
+          address={''}
+        />
         <BranchTableFilter
           selectItems={columns}
           selectedValue={hiddenColumns}

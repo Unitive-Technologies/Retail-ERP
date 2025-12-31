@@ -7,7 +7,12 @@ import toast from 'react-hot-toast';
 
 import { useEdit } from '@hooks/useEdit';
 import { GridColDef } from '@mui/x-data-grid';
-import { ChipComponent, ConfirmModal, DialogComp, MUHTable } from '@components/index';
+import {
+  ChipComponent,
+  ConfirmModal,
+  DialogComp,
+  MUHTable,
+} from '@components/index';
 import { useNavigate } from 'react-router-dom';
 import {
   CompletedIcon,
@@ -20,10 +25,12 @@ import {
 import { CONFIRM_MODAL, HTTP_STATUSES } from '@constants/Constance';
 import { useTheme, Avatar, Box, Typography } from '@mui/material';
 import { GrnService } from '@services/GrnService';
+import { isValidResponse } from '@utils/apiRequest';
 import dayjs from 'dayjs';
 
 import GrnListTable from './GrnListTable';
 import ViewGrn from './ViewGrn';
+import { DropDownServiceAll } from '@services/DropDownServiceAll';
 
 const GrnList = () => {
   const theme = useTheme();
@@ -34,7 +41,10 @@ const GrnList = () => {
   const [activeTab, setActiveTab] = useState<number>(0);
   const [hiddenColumns, setHiddenColumns] = useState<any[]>([]);
   const [confirmModalOpen, setConfirmModalOpen] = useState({ open: false });
-  const [viewDialog, setViewDialog] = useState<{ open: boolean; rowId: number | null }>({
+  const [viewDialog, setViewDialog] = useState<{
+    open: boolean;
+    rowId: number | null;
+  }>({
     open: false,
     rowId: null,
   });
@@ -43,10 +53,21 @@ const GrnList = () => {
     pending: 0,
     completed: 0,
   });
+  const [vendorData, setVendorData] = useState<{
+    vendors: {
+      label: string;
+      value: number;
+      state_id: number;
+      vendor_code: string;
+    }[];
+  }>({
+    vendors: [],
+  });
 
   const initialValues = {
-    status: 0,
-    offer_plan: '',
+    Vendor: '',
+    Status: '',
+    joining_date: null as any,
     search: '',
   };
   const handleViewGrn = (rowData: any) => {
@@ -58,6 +79,27 @@ const GrnList = () => {
     setViewDialog({ open: false, rowId: null });
   };
   const edit = useEdit(initialValues);
+
+  const fetchDropdowns = async () => {
+    try {
+      const vendorsRes = await DropDownServiceAll.getVendors();
+
+      const vendors = isValidResponse(vendorsRes, 200)
+        ? vendorsRes.data.data.vendors?.map((item: any) => ({
+            label: item.vendor_name,
+            value: item.id,
+            state_id: item.state_id,
+            vendor_code: item.vendor_code,
+          })) || []
+        : [];
+      setVendorData({ vendors });
+    } catch (error) {
+      console.error('Error fetching dropdowns:', error);
+      toast.error('Failed to load dropdown data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const card = [
     {
@@ -210,7 +252,8 @@ const GrnList = () => {
               {(
                 parseFloat(row.ordered_weight || 0) -
                 parseFloat(row.received_weight || 0)
-              ).toFixed(2)} g
+              ).toFixed(2)}{' '}
+              g
             </span>
           </Typography>
         </Box>
@@ -338,52 +381,85 @@ const GrnList = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
+
       const params: any = {};
-      
+
       const response: any = await GrnService.getAll(params);
-      
+
       if (response?.data?.statusCode === HTTP_STATUSES.OK) {
         const grns = response?.data?.data?.data ?? [];
-        
+
         const mappedData = grns.map((grn: any, index: number) => {
           const formattedDate = grn.date
             ? dayjs(grn.date).format('DD/MM/YYYY')
             : '';
-          
+
           const orderedWeight = parseFloat(grn.ordered_weight || 0);
           const receivedWeight = parseFloat(grn.received_weight || 0);
-          const yetToUpdate = (orderedWeight - receivedWeight).toFixed(2);
-          
-          const isCompleted = 
-            grn.status_id === 2 || 
+          const isCompleted =
+            grn.status_id === 2 ||
             (orderedWeight > 0 && receivedWeight >= orderedWeight);
           const status = isCompleted ? 'Completed' : 'Pending';
-          
+
+          const matchedVendor = vendorData.vendors.find(
+            (vendor) => vendor.value === grn.vendor_id
+          );
+
           return {
             id: grn.id,
             s_no: index + 1,
             date: formattedDate,
+            raw_date: grn.date,
             grn_no: grn.grn_no,
+            vendor_id: grn.vendor_id,
             vendor_name: grn.vendor_name || '',
-            vendor_code: grn.vendor_code || '',
-            vendor_logo: grn.vendor_logo || null,
-            ordered_weight: grn.ordered_weight || '0.000',
-            received_weight: grn.received_weight || '0.000',
-            yet_to_update: yetToUpdate,
+            vendor_code: matchedVendor?.vendor_code || '',
+            vendor_logo: grn.vendor_image_url || null,
+            ordered_weight: grn.order || '0.000',
+            received_weight: grn.updated_weight || '0.000',
+            yet_to_update: (orderedWeight - receivedWeight).toFixed(2),
             created_by: grn.created_by || 'Super Admin',
-            created_location: grn.created_location || 'Chennai',
+            created_location: grn.location || 'Chennai',
             status: status,
             status_id: grn.status_id,
           };
         });
-        
-        setOfferData(mappedData);
-        
+
+        // Apply client-side filters
+        const vendorFilter = edit.getValue('Vendor');
+        const statusFilter = edit.getValue('Status');
+        const dateFilter = edit.getValue('joining_date');
+
+        let filteredData = mappedData;
+
+        if (vendorFilter) {
+          filteredData = filteredData.filter(
+            (g: any) => String(g.vendor_id) === String(vendorFilter)
+          );
+        }
+
+        if (statusFilter) {
+          filteredData = filteredData.filter(
+            (g: any) => g.status === statusFilter
+          );
+        }
+
+        if (dateFilter) {
+          const selectedDate = dayjs(dateFilter).format('YYYY-MM-DD');
+          filteredData = filteredData.filter((g: any) => {
+            if (!g.raw_date) return false;
+            return dayjs(g.raw_date).format('YYYY-MM-DD') === selectedDate;
+          });
+        }
+
+        setOfferData(filteredData);
+
         const stats = {
-          total: grns.length,
-          pending: mappedData.filter((g: any) => g.status === 'Pending').length,
-          completed: mappedData.filter((g: any) => g.status === 'Completed').length,
+          total: filteredData.length,
+          pending: filteredData.filter((g: any) => g.status === 'Pending')
+            .length,
+          completed: filteredData.filter((g: any) => g.status === 'Completed')
+            .length,
         };
         setGrnStats(stats);
       }
@@ -399,7 +475,24 @@ const GrnList = () => {
 
   useEffect(() => {
     fetchData();
+  }, [
+    vendorData.vendors,
+    edit.getValue('Vendor'),
+    edit.getValue('Status'),
+    edit.getValue('joining_date'),
+    edit.getValue('search'),
+  ]);
+
+  useEffect(() => {
+    fetchDropdowns();
   }, []);
+
+  const statusOptions = [
+    { label: 'Pending', value: 'Pending' },
+    { label: 'Completed', value: 'Completed' },
+  ];
+
+  const vendorOptions = [...vendorData.vendors];
 
   return (
     <>
@@ -419,6 +512,8 @@ const GrnList = () => {
             handleFilterClear={handleFilterClear}
             edit={edit}
             isOfferPlan={true}
+            vendorOptions={vendorOptions}
+            statusOptions={statusOptions}
           />
           <MUHTable
             columns={columns.filter(
@@ -447,13 +542,13 @@ const GrnList = () => {
               sx={{
                 height: '100%',
                 overflowY: 'auto',
-                scrollbarWidth: 'none',
-                '&::-webkit-scrollbar': {
-                  display: 'none',
-                },
+                maxHeight: 'calc(100vh - 120px)',
               }}
             >
-              <ViewGrn rowId={viewDialog.rowId ?? undefined} showPageHeader={false} />
+              <ViewGrn
+                rowId={viewDialog.rowId ?? undefined}
+                showPageHeader={false}
+              />
             </Box>
           </DialogComp>
         )}

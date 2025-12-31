@@ -730,29 +730,37 @@ const ItemDetails = ({ edit }: Props) => {
 
   const renderDialogContent = () => {
     return (
-      <Grid container size={12} sx={{ p: 1.5 }}>
-        <Grid size={3}>
-          {/* Label */}
-          <Typography
-            style={{
-              fontFamily: theme.fontFamily.roboto,
-              fontSize: '14px',
-              fontWeight: 400,
-            }}
-          >
-            Enter Comments
-          </Typography>
-        </Grid>
-        <Grid size={9}>
-          {/* Textarea */}
-          <MUHTextArea
-            value={comments}
-            onChange={(e) => setComments(e.target.value)}
-            minRows={7}
-            maxRows={10}
-          />
-        </Grid>
-      </Grid>
+   <Grid container size={12} sx={{ p: 1.5 }}>
+<Grid size={3}>
+    {/* Label */}
+<Typography
+      style={{
+        fontFamily: theme.fontFamily.roboto,
+        fontSize: '14px',
+        fontWeight: 400,
+      }}
+>
+      Enter Comments
+</Typography>
+</Grid>
+ 
+  <Grid size={9}>
+   
+<MUHTextArea
+      value={comments}
+      onChange={(e) => {
+        const value = e.target.value;
+        if (value.trim() === "") {
+          setComments("");
+          return;
+        }
+        setComments(value);
+      }}
+      minRows={7}
+      maxRows={10}
+    />
+</Grid>
+</Grid>
     );
   };
 

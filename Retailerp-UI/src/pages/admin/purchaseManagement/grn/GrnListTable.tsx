@@ -15,35 +15,9 @@ type Props = {
   handleFilterClear: () => void;
   edit: any;
   isOfferPlan?: boolean;
+  vendorOptions: { value: number | string; label: string }[];
+  statusOptions: { value: string | number; label: string }[];
 };
-
-export const VendorList = [
-  {
-    value: 1,
-    label: 'Golden Hub Pvt., Ltd.,',
-  },
-  {
-    value: 2,
-    label: 'Shiva Silver Suppliers',
-  },
-  {
-    value: 3,
-    label: 'Jai Shree Jewels',
-  },
-  {
-    value: 4,
-    label: 'Kalash Gold & Silver Mart',
-  },
-  {
-    value: 5,
-    label: 'Sai Precious Metals',
-  },
-];
-export const StatusList = [
-  { value: 1, label: 'Pending' },
-  { value: 2, label: 'Yet To Update' },
-  { value: 3, label: 'Updated' },
-];
 
 const GrnListTable = ({
   selectItems,
@@ -51,6 +25,8 @@ const GrnListTable = ({
   selectedValue,
   handleFilterClear,
   edit,
+  vendorOptions,
+  statusOptions,
 }: Props) => {
   return (
     <Grid container sx={tableFilterContainerStyle}>
@@ -59,7 +35,7 @@ const GrnListTable = ({
           value={edit?.getValue('Vendor')}
           onChange={(e: any) => edit?.update({ Vendor: e.target.value })}
           placeholderText="Vendor"
-          selectItems={VendorList}
+          selectItems={vendorOptions}
           {...CommonFilterSelectBoxProps}
         />
       </Grid>
@@ -68,7 +44,7 @@ const GrnListTable = ({
           value={edit?.getValue('Status')}
           onChange={(e: any) => edit?.update({ Status: e.target.value })}
           placeholderText="Status"
-          selectItems={StatusList}
+          selectItems={statusOptions}
           {...CommonFilterSelectBoxProps}
         />
       </Grid>

@@ -62,9 +62,25 @@ body,
   font-family: 'Roboto-Regular';
 }
 
+/* Hide print-only elements on screen */
+.print-only {
+  display: none;
+}
+
+/* Elements that should be hidden only in print (filters, controls, etc.) */
+.print-hide {
+  display: block;
+}
+
 html {
-  scroll-behavior: smooth;
-  /* overflow: hidden; */
+  /* scroll-behavior: smooth; */ /* Commented out to prevent scroll-to-end on refresh */
+  overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+/* Add scroll restoration control */
+html, body {
+  scroll-padding-top: 0;
+  scroll-behavior: auto; /* Use auto instead of smooth */
 }
 
 ::-webkit-scrollbar {
@@ -78,4 +94,81 @@ html {
 
 ::-webkit-scrollbar-track {
   background: #f1f1f1; /* Set the scrollbar track color */
+}
+
+/* Print styles */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Show only the print areas */
+  body * {
+    visibility: hidden !important;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible !important;
+  }
+  /* Show print-only elements in print */
+  .print-only {
+    display: block !important;
+  }
+  .print-hide {
+    display: none !important;
+  }
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding-top: 6mm; /* add gap above heading */
+  }
+
+  /* add extra gap below heading line */
+  .print-area .print-only > div {
+    margin-bottom: 6mm !important;
+    padding: 3mm 4mm 3mm 4mm !important; /* top/right/bottom/left padding */
+  }
+
+  /* Remove shadows/borders that look odd on paper */
+  .MuiPaper-root {
+    box-shadow: none !important;
+  }
+
+  /* DataGrid: expand to full height for printing */
+  .MuiDataGrid-root {
+    height: auto !important;
+    width: 100% !important;
+    /* border: 1px solid #ddd !important; */
+  }
+  .MuiDataGrid-virtualScroller,
+  .MuiDataGrid-main {
+    overflow: visible !important;
+    height: auto !important;
+  }
+  /* Optional: hide footer/pagination/toolbars when printing */
+  .MuiDataGrid-footerContainer,
+  .MuiDataGrid-toolbarContainer,
+  .MuiPagination-root {
+    display: none !important;
+  }
+
+  /* Hide app-specific filter and pagination components in print */
+  .branch-filter,
+  .table-pagination {
+    display: none !important;
+  }
+
+  /* Hide Action column in print */
+  .MuiDataGrid-columnHeader[data-field='action'],
+  .MuiDataGrid-cell[data-field='action'] {
+    display: none !important;
+  }
 }

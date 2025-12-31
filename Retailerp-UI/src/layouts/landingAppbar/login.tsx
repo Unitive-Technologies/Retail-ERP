@@ -1,19 +1,15 @@
-import Grid from '@mui/material/Grid2';
-import { Box, IconButton, Typography, useTheme } from '@mui/material';
+import { Box, useTheme, useMediaQuery, IconButton } from '@mui/material';
 import { Close, HighlightOff } from '@mui/icons-material';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 
-import { LoginBackground, LoginImage } from '@assets/Images';
+import { LoginLeftSideImage } from '@assets/Images';
 import MUHTypography from '@components/MUHTypography';
 import MUHTextInput from '@components/MUHTextInput';
 import { ButtonComponent } from '@components';
 import { useEdit } from '@hooks/useEdit';
-import { isPhoneNumber } from '@utils/form-util';
+import { isPhoneNumber, isValidEmail } from '@utils/form-util';
 import OtpInput from './OtpInput';
-
-const GRADIENT_BACKGROUND =
-  'linear-gradient(135deg, rgba(71,25,35,1) 0%, rgba(127,50,66,1) 100%)';
 
 const STATIC_OTP = '1234';
 
@@ -34,6 +30,7 @@ const inputStyle = {
     },
   },
 };
+
 interface LoginContainerProps {
   onSuccess: () => void;
   onClose?: () => void;
@@ -41,11 +38,12 @@ interface LoginContainerProps {
 
 const Login = ({ onSuccess, onClose }: LoginContainerProps) => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [currentStep, setCurrentStep] = useState<AuthStep>('ENTER_MOBILE');
-  const [otpCountdown, setOtpCountdown] = useState<number>(60);
-  const [isResendOtpEnabled, setIsResendOtpEnabled] = useState<boolean>(false);
-  const [hasInputError, setHasInputError] = useState<boolean>(false);
+  const [otpCountdown, setOtpCountdown] = useState(60);
+  const [isResendOtpEnabled, setIsResendOtpEnabled] = useState(false);
+  const [hasInputError, setHasInputError] = useState(false);
 
   const otpTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -54,79 +52,81 @@ const Login = ({ onSuccess, onClose }: LoginContainerProps) => {
     otp: '',
     name: '',
     email: '',
-    registerMobileNo: '',
   });
 
-  const handleBackNavigation = () => {
-    if (currentStep === 'VERIFY_OTP') {
-      setCurrentStep('ENTER_MOBILE');
-    }
+  const mobileNo = formState.getValue('mobileNo');
+  const otp = formState.getValue('otp');
+  const name = formState.getValue('name');
+  const email = formState.getValue('email');
 
-    if (currentStep === 'REGISTER_USER') {
-      setCurrentStep('ENTER_MOBILE');
-      formState.update({ mobileNo: '' });
-    }
-  };
+  const maskedMobileLastFourDigits = useMemo(
+    () => mobileNo?.slice(-4),
+    [mobileNo]
+  );
 
-  const handleMobileNumberSubmit = () => {
-    if (!isPhoneNumber(formState.getValue('mobileNo'))) {
+  const handleBackNavigation = useCallback(() => {
+    setCurrentStep((prev) =>
+      prev === 'REGISTER_USER' ? 'VERIFY_OTP' : 'ENTER_MOBILE'
+    );
+  }, []);
+
+  const handleMobileNumberSubmit = useCallback(() => {
+    if (!isPhoneNumber(mobileNo)) {
+      setHasInputError(true);
       return toast.error('Please enter a valid mobile number');
     }
 
     setCurrentStep('VERIFY_OTP');
     setOtpCountdown(60);
     setIsResendOtpEnabled(false);
-  };
+  }, [mobileNo]);
 
-  const handleClearMobileNumber = () => {
+  const handleClearMobileNumber = useCallback(() => {
     formState.update({ mobileNo: '' });
     setHasInputError(false);
-  };
+  }, [formState]);
 
-  const handleOtpVerification = () => {
-    if (formState.getValue('otp') !== STATIC_OTP) {
+  const handleOtpVerification = useCallback(() => {
+    if (otp !== STATIC_OTP) {
       return toast.error('Invalid OTP');
     }
 
     toast.success('Login successful');
-    onSuccess();
-  };
+    setCurrentStep('REGISTER_USER');
+  }, [otp]);
 
-  const handleResendOtpClick = () => {
+  const handleResendOtpClick = useCallback(() => {
     setOtpCountdown(60);
     setIsResendOtpEnabled(false);
     toast.success('OTP resent successfully');
-  };
+  }, []);
 
-  const handleUserRegistration = () => {
-    const name = formState.getValue('name');
-    const email = formState.getValue('email');
-    const registerMobileNo = formState.getValue('registerMobileNo');
-
-    if (!name || !email || !registerMobileNo) {
+  const handleUserRegistration = useCallback(() => {
+    if (!name || !email || !mobileNo) {
       return toast.error('Please fill all fields');
     }
 
-    if (!isPhoneNumber(registerMobileNo)) {
+    if (!isPhoneNumber(mobileNo)) {
       return toast.error('Please enter a valid mobile number');
     }
 
-    if (!email.includes('@')) {
-      return toast.error('Please enter a valid email');
+    if (!isValidEmail(email)) {
+      return toast.error('Please enter a valid email address');
     }
 
     toast.success('Registration successful');
     onSuccess();
-  };
+  }, [name, email, mobileNo, onSuccess]);
 
   useEffect(() => {
-    if (currentStep === 'VERIFY_OTP' && otpCountdown > 0) {
-      otpTimerRef.current = setTimeout(() => {
-        setOtpCountdown((prev) => prev - 1);
-      }, 1000);
-    }
+    if (currentStep !== 'VERIFY_OTP') return;
 
-    if (otpCountdown === 0) {
+    if (otpCountdown > 0) {
+      otpTimerRef.current = setTimeout(
+        () => setOtpCountdown((prev) => prev - 1),
+        1000
+      );
+    } else {
       setIsResendOtpEnabled(true);
     }
 
@@ -137,44 +137,53 @@ const Login = ({ onSuccess, onClose }: LoginContainerProps) => {
     };
   }, [currentStep, otpCountdown]);
 
-  const maskedMobileLastFourDigits =
-    formState.getValue('mobileNo')?.slice(-4);
-
   return (
-    <Grid container height="100%">
-      {/* CLOSE ICON */}
-      {onClose && (
-        <Box sx={{ position: 'absolute', top: 15, right: 20, zIndex: 1 }}>
-          <IconButton
-            onClick={onClose}
-            sx={{ height: 30, width: 30, backgroundColor: '#F0F0F0' }}
-          >
-            <Close sx={{ color: '#1F1F29' }} />
-          </IconButton>
-        </Box>
-      )}
-
-      {/* LEFT IMAGE SECTION */}
-      <Grid
-        size={6}
+    <Box
+      sx={{ display: 'flex', alignItems: 'stretch', height: '100%',margin:0,padding:0 }}
+      flexDirection={isMobile ? 'column' : 'row'}
+    >
+      {/* LEFT IMAGE */}
+      <Box
         sx={{
           display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'flex-end',
-          background: `${GRADIENT_BACKGROUND}, url(${LoginBackground})`,
-          backgroundBlendMode: 'hard-light',
+          width: isMobile ? '100%' : 'auto',
+          height: isMobile ? 'auto' : '100%',
+          overflow: 'hidden',
         }}
       >
-        <img src={LoginImage} height="61%" width="88%" />
-      </Grid>
+        <LoginLeftSideImage style={{ width: '100%', height: '100%',objectFit:'cover' }} />
+      </Box>
 
-      {/* RIGHT FORM SECTION */}
-      <Grid size={6} container direction="column" justifyContent="center" gap={5} p={4}>
+      {/* RIGHT FORM */}
+      <Box
+        sx={{
+          flex: 1.5,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          gap: 5,
+          p: isMobile ? 2 : 3,
+          height: '100%',
+          margin: 0,
+        }}
+      >
+        {!isMobile && (
+          <Box sx={{ position: 'absolute', top: 15, right: 20 }}>
+            <IconButton
+              onClick={onClose}
+              sx={{ height: 30, width: 30, backgroundColor: '#F0F0F0' }}
+            >
+              <Close sx={{ color: '#1F1F29' }} />
+            </IconButton>
+          </Box>
+        )}
+
         {/* HEADER */}
         <Box display="flex" flexDirection="column" gap={2}>
           <MUHTypography
-            text={currentStep === 'ENTER_MOBILE' ? 'Log in/Sign up' : 'Register'}
+            text={
+              currentStep === 'ENTER_MOBILE' ? 'Log in/Sign up' : 'Register'
+            }
             size={24}
             weight={600}
           />
@@ -188,13 +197,13 @@ const Login = ({ onSuccess, onClose }: LoginContainerProps) => {
           />
         </Box>
 
-        {/* STEP 1 – MOBILE */}
+        {/* STEP 1 */}
         {currentStep === 'ENTER_MOBILE' && (
           <MUHTextInput
             inputLabel="Enter Mobile Number"
             isLogin
             sx={inputStyle}
-            value={formState.getValue('mobileNo')}
+            value={mobileNo}
             onChange={(e) => {
               const value = e.target.value;
               if (!/^\d*$/.test(value) || value.length > 10) return;
@@ -211,7 +220,7 @@ const Login = ({ onSuccess, onClose }: LoginContainerProps) => {
           />
         )}
 
-        {/* STEP 2 – OTP */}
+        {/* STEP 2 */}
         {currentStep === 'VERIFY_OTP' && (
           <Box>
             <MUHTypography
@@ -221,18 +230,17 @@ const Login = ({ onSuccess, onClose }: LoginContainerProps) => {
             />
             <OtpInput onChange={(otp) => formState.update({ otp })} />
 
-            <Box mt={1} display="flex" gap={1}>
+            <Box mt={1}>
               {!isResendOtpEnabled ? (
-                <MUHTypography text={`Resend OTP in ${otpCountdown}s`} size={14} />
+                <MUHTypography
+                  text={`Resend OTP in ${otpCountdown}s`}
+                  size={14}
+                />
               ) : (
                 <MUHTypography
                   text="Resend OTP"
                   size={14}
-                  sx={{
-                    color: '#7D3141',
-                    cursor: 'pointer',
-                    fontWeight: 500,
-                  }}
+                  sx={{ color: '#7D3141', cursor: 'pointer', fontWeight: 500 }}
                   onClick={handleResendOtpClick}
                 />
               )}
@@ -240,48 +248,42 @@ const Login = ({ onSuccess, onClose }: LoginContainerProps) => {
           </Box>
         )}
 
-        {/* STEP 3 – REGISTER */}
+        {/* STEP 3 */}
         {currentStep === 'REGISTER_USER' && (
           <Box display="flex" flexDirection="column" gap={1}>
             <MUHTextInput
-            isLogin={true}
               inputLabel="Name"
-              value={formState.getValue('name')}
+              isLogin
+              value={name}
               onChange={(e) => formState.update({ name: e.target.value })}
               sx={inputStyle}
             />
-
             <MUHTextInput
               inputLabel="Mobile Number"
-            isLogin={true}
-              value={formState.getValue('registerMobileNo')}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (!/^\d*$/.test(value) || value.length > 10) return;
-                formState.update({ registerMobileNo: value });
-              }}
+              isLogin
+              value={mobileNo}
+              disabled
               sx={inputStyle}
             />
-
             <MUHTextInput
               inputLabel="Email ID"
-            isLogin={true}
-              value={formState.getValue('email')}
+              isLogin
+              value={email}
               onChange={(e) => formState.update({ email: e.target.value })}
               sx={inputStyle}
             />
           </Box>
         )}
 
-        {/* ACTION BUTTONS */}
+        {/* ACTIONS */}
         <Box display="flex" flexDirection="column" gap={2}>
           <ButtonComponent
             buttonText={
               currentStep === 'ENTER_MOBILE'
                 ? 'Request OTP'
                 : currentStep === 'VERIFY_OTP'
-                ? 'Login'
-                : 'Continue'
+                  ? 'Login'
+                  : 'Continue'
             }
             bgColor="#7D3141"
             btnHeight={44}
@@ -290,8 +292,8 @@ const Login = ({ onSuccess, onClose }: LoginContainerProps) => {
               currentStep === 'ENTER_MOBILE'
                 ? handleMobileNumberSubmit
                 : currentStep === 'VERIFY_OTP'
-                ? handleOtpVerification
-                : handleUserRegistration
+                  ? handleOtpVerification
+                  : handleUserRegistration
             }
           />
 
@@ -306,25 +308,9 @@ const Login = ({ onSuccess, onClose }: LoginContainerProps) => {
               onClick={handleBackNavigation}
             />
           )}
-
-          {currentStep === 'ENTER_MOBILE' && (
-            <Typography fontSize={12} textAlign="center">
-              Don't have an account?{' '}
-              <span
-                onClick={() => setCurrentStep('REGISTER_USER')}
-                style={{
-                  color: theme.Colors.primary,
-                  cursor: 'pointer',
-                  textDecoration: 'underline',
-                }}
-              >
-                Sign Up
-              </span>
-            </Typography>
-          )}
         </Box>
-      </Grid>
-    </Grid>
+      </Box>
+    </Box>
   );
 };
 

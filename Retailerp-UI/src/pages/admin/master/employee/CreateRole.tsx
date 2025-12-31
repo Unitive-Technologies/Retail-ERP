@@ -1,8 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Box,
   Typography,
   Checkbox,
@@ -30,9 +27,9 @@ import { useEdit } from '@hooks/useEdit';
 import { EmpDesignationDropdownService } from '@services/EmpDesignationDropdownService';
 import { EmployeeDepAddService } from '@services/EmployeeDepAddService';
 import RoleCreateService from '@services/RoleCreateService';
+import { EmployeePermissionService } from '@services/EmployeePermissionService';
 
 const RoleAccessPage = () => {
-  const [expanded, setExpanded] = useState<string | false>(false);
   const navigateTo = useNavigate();
   const theme = useTheme();
   const [departmentOptions, setDepartmentOptions] = useState<
@@ -73,6 +70,8 @@ const RoleAccessPage = () => {
     null;
 
   const isViewMode = mode === 'view';
+  const isDepartmentReadOnly =
+    isViewMode || mode === 'edit' || mode === 'update-permission';
 
   const employeeProfileData = employeeData
     ? {
@@ -87,11 +86,6 @@ const RoleAccessPage = () => {
         avatar: employeeData.profile_image_url || employeeData.image || '',
       }
     : null;
-
-  const handleAccordionChange =
-    (panel: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
-      setExpanded(isExpanded ? panel : false);
-    };
 
   const initialValues = {
     status: 0,
@@ -217,6 +211,11 @@ const RoleAccessPage = () => {
         );
 
         setSections(validResults);
+        // Set all sections as expanded by default
+        const allSectionTitles = new Set(
+          validResults.map((result) => result.title)
+        );
+        setExpandedSections(allSectionTitles);
       } catch (e) {
         console.error('Error fetching modules:', e);
         setSections([]);
@@ -230,7 +229,17 @@ const RoleAccessPage = () => {
     []
   );
 
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    new Set()
+  );
+
   const [accessData, setAccessData] = useState<Record<string, any>>({});
+
+  const [permissionIdMap, setPermissionIdMap] = useState<
+    Record<string, number>
+  >({});
+
+  const permissionsLoadedRef = useRef<string>('');
 
   useEffect(() => {
     if (!sections?.length) return;
@@ -288,71 +297,137 @@ const RoleAccessPage = () => {
       if (!mode || !effectiveDepartmentId || !roleNameFromState) return;
       if (!sections?.length) return;
 
+      if (!accessData || Object.keys(accessData).length === 0) {
+        return;
+      }
+
+      const loadKey = `${mode}_${effectiveDepartmentId}_${roleNameFromState}`;
+
+      if (permissionsLoadedRef.current === loadKey) {
+        return;
+      }
+
       try {
-        const res: any = await RolePermissionService.getRolePermissions({
-          department_id: effectiveDepartmentId,
-          role_name: roleNameFromState,
-        });
+        let modules: any[] = [];
 
-        const data = res?.data ?? res;
-        const modules =
-          data?.data?.data?.modules ??
-          data?.data?.modules ??
-          data?.modules ??
-          [];
+        const isEmployeeUpdate =
+          mode === 'update-permission' && employeeData?.id;
 
-        if (!Array.isArray(modules) || !modules.length) return;
-
-        const updatedAccessData = { ...accessData };
-
-        modules.forEach((perm: any) => {
-          const groupName = perm.module_group_name || '';
-
-          const sectionTitle = Object.keys(updatedAccessData).find(
-            (title) =>
-              title.toLowerCase() === groupName.toLowerCase() ||
-              title.toLowerCase() === (groupName || '').toString().toLowerCase()
+        if (isEmployeeUpdate) {
+          const empModules = await EmployeePermissionService.get(
+            employeeData.id
           );
+          modules = Array.isArray(empModules) ? empModules : [];
 
-          if (!sectionTitle) return;
-
-          const moduleName = perm.module_name;
-          const accessLevelId = perm.access_level_id;
-
-          const moduleState =
-            updatedAccessData[sectionTitle]?.modules?.[moduleName];
-
-          if (!moduleState) return;
-
-          if (accessLevelId === 1) {
-            moduleState.read = true;
-          } else if (accessLevelId === 2) {
-            moduleState.write = true;
-            moduleState.edit = true;
-          } else if (accessLevelId === 3) {
-            moduleState.full = true;
-            moduleState.read = true;
-            moduleState.write = true;
-            moduleState.edit = true;
+          if (!modules.length) {
+            const roleRes: any = await RolePermissionService.getRolePermissions(
+              {
+                department_id: effectiveDepartmentId,
+                role_name: roleNameFromState,
+              }
+            );
+            const roleData = roleRes?.data ?? roleRes;
+            modules =
+              roleData?.data?.data?.modules ??
+              roleData?.data?.modules ??
+              roleData?.modules ??
+              [];
           }
+        } else {
+          const res: any = await RolePermissionService.getRolePermissions({
+            department_id: effectiveDepartmentId,
+            role_name: roleNameFromState,
+          });
+
+          const data = res?.data ?? res;
+          modules =
+            data?.data?.data?.modules ??
+            data?.data?.modules ??
+            data?.modules ??
+            [];
+        }
+
+        if (!Array.isArray(modules) || !modules.length) {
+          permissionsLoadedRef.current = loadKey;
+          return;
+        }
+
+        setAccessData((currentAccessData) => {
+          const updatedAccessData = { ...currentAccessData };
+          const newPermissionIdMap: Record<string, number> = {};
+
+          modules.forEach((perm: any) => {
+            const groupName = perm.module_group_name || '';
+
+            const sectionTitle = Object.keys(updatedAccessData).find(
+              (title) =>
+                title.toLowerCase() === groupName.toLowerCase() ||
+                title.toLowerCase() ===
+                  (groupName || '').toString().toLowerCase()
+            );
+
+            if (!sectionTitle) return;
+
+            const moduleName = perm.module_name;
+            const accessLevelId = perm.access_level_id;
+            const moduleId = perm.module_id || perm.moduleId;
+
+            const moduleState =
+              updatedAccessData[sectionTitle]?.modules?.[moduleName];
+
+            if (!moduleState) return;
+
+            // Store permission ID for updates (key: "moduleId_accessLevelId")
+            if (perm.id && moduleId) {
+              const key = `${moduleId}_${accessLevelId}`;
+              newPermissionIdMap[key] = perm.id;
+            }
+
+            if (accessLevelId === 1) {
+              moduleState.read = true;
+            } else if (accessLevelId === 2) {
+              moduleState.write = true;
+              moduleState.edit = true;
+            } else if (accessLevelId === 3) {
+              moduleState.full = true;
+              moduleState.read = true;
+              moduleState.write = true;
+              moduleState.edit = true;
+            }
+          });
+
+          setPermissionIdMap(newPermissionIdMap);
+
+          Object.keys(updatedAccessData).forEach((sectionTitle) => {
+            const modulesMap = updatedAccessData[sectionTitle]?.modules || {};
+            const allModulesFullyChecked = Object.values(modulesMap).every(
+              (m: any) => m.full && m.read && m.edit
+            );
+            updatedAccessData[sectionTitle].checked = allModulesFullyChecked;
+          });
+
+          return updatedAccessData;
         });
 
-        Object.keys(updatedAccessData).forEach((sectionTitle) => {
-          const modulesMap = updatedAccessData[sectionTitle]?.modules || {};
-          const allModulesFullyChecked = Object.values(modulesMap).every(
-            (m: any) => m.full && m.read && m.edit
-          );
-          updatedAccessData[sectionTitle].checked = allModulesFullyChecked;
-        });
-
-        setAccessData({ ...updatedAccessData });
+        permissionsLoadedRef.current = loadKey;
       } catch (error) {
-        console.error('Error loading existing role permissions:', error);
+        console.error('Error loading existing permissions:', error);
       }
     };
 
     loadExistingPermissions();
-  }, [mode, effectiveDepartmentId, roleNameFromState, sections]);
+  }, [
+    mode,
+    effectiveDepartmentId,
+    roleNameFromState,
+    sections,
+    accessData,
+    employeeData?.id,
+  ]);
+
+  useEffect(() => {
+    permissionsLoadedRef.current = '';
+  }, [mode, effectiveDepartmentId, roleNameFromState]);
 
   const handleSectionCheck = (sectionTitle: string) => {
     if (isViewMode) return;
@@ -496,6 +571,22 @@ const RoleAccessPage = () => {
     return Object.values(modules).every((module: any) => module[type]);
   };
 
+  const handleToggleSection = (sectionTitle: string) => {
+    setExpandedSections((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(sectionTitle)) {
+        newSet.delete(sectionTitle);
+      } else {
+        newSet.add(sectionTitle);
+      }
+      return newSet;
+    });
+  };
+
+  const isSectionExpanded = (sectionTitle: string) => {
+    return expandedSections.has(sectionTitle);
+  };
+
   const validatePermissions = () => {
     const hasAnyPermissions = Object.values(accessData).some((section: any) =>
       Object.values(section?.modules || {}).some(
@@ -552,64 +643,223 @@ const RoleAccessPage = () => {
         department_id = Number(dept.value);
       }
 
-      const permissions: any[] = [];
-
-      Object.entries(accessData).forEach(([_, section]) => {
-        Object.values(section.modules).forEach((moduleData: any) => {
-          const { moduleId, full, read, write, edit } = moduleData;
-
-          // 1 → Read
-          if (read) {
-            permissions.push({
-              module_id: moduleId,
-              access_level_id: 1,
-            });
-          }
-
-          // 2 → Write/Edit
-          if (write || edit) {
-            permissions.push({
-              module_id: moduleId,
-              access_level_id: 2,
-            });
-          }
-
-          // 3 → Full Access
-          if (full) {
-            permissions.push({
-              module_id: moduleId,
-              access_level_id: 3,
-            });
-          }
-        });
-      });
-
       if (!department_id) {
         toast.error('Please select a department');
         return;
       }
 
-      const payload = {
-        role_name: roleName,
-        department_id,
-        permissions: permissions,
-      };
+      const isEmployeeUpdate = mode === 'update-permission' && employeeData?.id;
 
-      const roleRes: any = await RoleCreateService.create(
-        payload as any // payload matches CreateRolePayload at runtime
-      );
+      if (isEmployeeUpdate) {
+        const permissions: Array<{
+          module_id: number;
+          access_level_id: number;
+        }> = [];
 
-      const roleStatus = roleRes?.status ?? roleRes?.statusCode;
-      if (roleStatus && roleStatus < HTTP_STATUSES.BAD_REQUEST) {
-        toast.success('Role created successfully');
-        navigateTo('/admin/master/employee');
-        return;
+        Object.entries(accessData).forEach(([_, section]) => {
+          Object.values(section.modules).forEach((moduleData: any) => {
+            const { moduleId, full, read, write, edit } = moduleData;
+
+            // Determine the highest access level (only create one permission per module)
+            let accessLevelId: number | null = null;
+            if (full) {
+              accessLevelId = 3; // Full Access
+            } else if (write || edit) {
+              accessLevelId = 2; // Write/Edit
+            } else if (read) {
+              accessLevelId = 1; // Read
+            }
+
+            if (accessLevelId !== null) {
+              permissions.push({
+                module_id: moduleId,
+                access_level_id: accessLevelId,
+              });
+            }
+          });
+        });
+
+        const employeePayload = {
+          department_id,
+          role_name: roleName,
+          permissions: permissions,
+        };
+
+        const employeeRes: any = await EmployeePermissionService.update(
+          employeeData.id,
+          employeePayload
+        );
+
+        const employeeStatus = employeeRes?.status ?? employeeRes?.statusCode;
+        if (employeeStatus && employeeStatus < HTTP_STATUSES.BAD_REQUEST) {
+          toast.success('Employee permissions updated successfully');
+          navigateTo('/admin/master/employee');
+          return;
+        }
+
+        throw new Error(
+          employeeRes?.data?.message || 'Failed to update employee permissions'
+        );
+      } else if (mode && (mode === 'edit' || mode === 'update-permission')) {
+        // Handle role permission update (mixed create + update)
+        const permissions: Array<{
+          id?: number;
+          module_id: number;
+          access_level_id: number;
+          role_name?: string;
+          department_id?: number;
+        }> = [];
+
+        Object.entries(accessData).forEach(([_, section]) => {
+          Object.values(section.modules).forEach((moduleData: any) => {
+            const { moduleId, full, read, write, edit } = moduleData;
+
+            let accessLevelId: number | null = null;
+            if (full) {
+              accessLevelId = 3; // Full Access
+            } else if (write || edit) {
+              accessLevelId = 2; // Write/Edit
+            } else if (read) {
+              accessLevelId = 1; // Read
+            }
+
+            if (accessLevelId !== null) {
+              const key = `${moduleId}_${accessLevelId}`;
+              const permissionId = permissionIdMap[key];
+              const perm: any = {
+                module_id: moduleId,
+                access_level_id: accessLevelId,
+              };
+
+              if (permissionId) {
+                perm.id = permissionId;
+              } else {
+                perm.role_name = roleName;
+                perm.department_id = department_id;
+              }
+
+              permissions.push(perm);
+            }
+          });
+        });
+
+        if (
+          permissions.length === 0 &&
+          mode === 'update-permission' &&
+          employeeData?.id
+        ) {
+          try {
+            const empModules = await EmployeePermissionService.get(
+              employeeData.id
+            );
+
+            // Collapse multiple entries per module to the highest access level
+            const moduleAccessMap: Record<number, number> = {};
+            (empModules || []).forEach((perm: any) => {
+              const moduleId = perm.module_id;
+              const accessLevelId = perm.access_level_id;
+
+              if (!moduleId || !accessLevelId) return;
+
+              const current = moduleAccessMap[moduleId];
+              if (!current || accessLevelId > current) {
+                moduleAccessMap[moduleId] = accessLevelId;
+              }
+            });
+
+            Object.entries(moduleAccessMap).forEach(
+              ([moduleIdStr, accessLevelId]) => {
+                const moduleId = Number(moduleIdStr);
+                if (!moduleId || !accessLevelId) return;
+
+                const perm: any = {
+                  module_id: moduleId,
+                  access_level_id: accessLevelId,
+                };
+
+                perm.role_name = roleName;
+                perm.department_id = department_id;
+
+                permissions.push(perm);
+              }
+            );
+          } catch (err) {
+            console.error(
+              'Error loading employee permissions for role update fallback:',
+              err
+            );
+          }
+        }
+
+        const roleUpdatePayload = {
+          role_name: roleName,
+          department_id: department_id,
+          permissions: permissions,
+        };
+
+        const roleRes: any =
+          await RoleCreateService.updateRolePermissions(roleUpdatePayload);
+
+        const roleStatus = roleRes?.status ?? roleRes?.statusCode;
+        if (roleStatus && roleStatus < HTTP_STATUSES.BAD_REQUEST) {
+          toast.success('Role permissions updated successfully');
+          navigateTo('/admin/master/employee');
+          return;
+        }
+
+        throw new Error(
+          roleRes?.data?.message || 'Failed to update role permissions'
+        );
+      } else {
+        const permissions: any[] = [];
+
+        Object.entries(accessData).forEach(([_, section]) => {
+          Object.values(section.modules).forEach((moduleData: any) => {
+            const { moduleId, full, read, write, edit } = moduleData;
+
+            // Determine the highest access level (only create one permission per module)
+            let accessLevelId: number | null = null;
+            if (full) {
+              accessLevelId = 3; // Full Access
+            } else if (write || edit) {
+              accessLevelId = 2; // Write/Edit
+            } else if (read) {
+              accessLevelId = 1; // Read
+            }
+
+            if (accessLevelId !== null) {
+              permissions.push({
+                module_id: moduleId,
+                access_level_id: accessLevelId,
+              });
+            }
+          });
+        });
+
+        const payload = {
+          role_name: roleName,
+          department_id,
+          permissions: permissions,
+        };
+
+        const roleRes: any = await RoleCreateService.create(
+          payload as any // payload matches CreateRolePayload at runtime
+        );
+
+        const roleStatus = roleRes?.status ?? roleRes?.statusCode;
+        if (roleStatus && roleStatus < HTTP_STATUSES.BAD_REQUEST) {
+          toast.success('Role created successfully');
+          navigateTo('/admin/master/employee');
+          return;
+        }
+
+        throw new Error(roleRes?.data?.message || 'Failed to create role');
       }
-
-      throw new Error(roleRes?.data?.message || 'Failed to create role');
     } catch (error: any) {
-      console.error('Error creating role:', error);
-      toast.error(error?.message || 'Failed to create role. Please try again.');
+      console.error('Error saving permissions:', error);
+      toast.error(
+        error?.message || 'Failed to save permissions. Please try again.'
+      );
     }
   };
 
@@ -681,12 +931,17 @@ const RoleAccessPage = () => {
                 label="Department"
                 options={departmentOptions}
                 value={edit.getValue('department')}
-                isReadOnly={isViewMode}
-                onChange={(_e: any, value: any) =>
-                  edit.update({ department: value })
+                isReadOnly={isDepartmentReadOnly}
+                onChange={(_e: any, value: any) => {
+                  if (isDepartmentReadOnly) return;
+                  edit.update({ department: value });
+                }}
+                addNewLabel={isDepartmentReadOnly ? undefined : '+ Add New '}
+                onAddNew={
+                  isDepartmentReadOnly
+                    ? undefined
+                    : () => setDeptDialogOpen(true)
                 }
-                addNewLabel="+ Add New "
-                onAddNew={() => setDeptDialogOpen(true)}
                 // placeholder="Select or add department"
                 isOptionEqualToValue={(option: any, value: any) =>
                   option.value === value?.value
@@ -712,31 +967,32 @@ const RoleAccessPage = () => {
       {/* ===== MODULE PERMISSIONS ===== */}
       <Box sx={{ mt: 3 }}>
         {sections.map((section, index) => (
-          <Accordion
+          <Box
             key={index}
-            expanded={expanded === section.title}
-            onChange={handleAccordionChange(section.title)}
             sx={{
               mb: 2,
               borderRadius: 2,
-              '&:before': { display: 'none' },
               boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
               overflow: 'hidden',
+              backgroundColor: theme.Colors.whitePrimary,
+              border: `1px solid ${theme.Colors.grayLight}`,
             }}
           >
-            <AccordionSummary
-              expandIcon={<ExpandMoreIcon />}
+            {/* Section Header */}
+            <Box
+              onClick={() => handleToggleSection(section.title)}
               sx={{
                 backgroundColor: '#fdf3f3',
                 px: 2,
                 py: 1.5,
                 minHeight: '48px',
-                '&.Mui-expanded': {
-                  minHeight: '48px',
-                },
-                '& .MuiAccordionSummary-content': {
-                  margin: '0 !important',
-                  alignItems: 'center',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                borderBottom: `1px solid ${theme.Colors.grayLight}`,
+                cursor: 'pointer',
+                '&:hover': {
+                  backgroundColor: '#fce8e8',
                 },
               }}
             >
@@ -758,7 +1014,7 @@ const RoleAccessPage = () => {
                   }}
                 />
                 <Typography
-                  style={{
+                  sx={{
                     fontWeight: 600,
                     color: '#7a1c1c',
                     fontFamily: theme.fontFamily.roboto,
@@ -768,9 +1024,20 @@ const RoleAccessPage = () => {
                   {section.title}
                 </Typography>
               </Box>
-            </AccordionSummary>
+              <ExpandMoreIcon
+                sx={{
+                  color: '#7a1c1c',
+                  transform: isSectionExpanded(section.title)
+                    ? 'rotate(180deg)'
+                    : 'rotate(0deg)',
+                  transition: 'transform 0.3s',
+                }}
+              />
+            </Box>
 
-            <AccordionDetails sx={{ p: 0 }}>
+            {/* Table Content - Conditionally Visible */}
+            {isSectionExpanded(section.title) && (
+              <Box sx={{ p: 0 }}>
               {/* === Table Header === */}
               <Grid
                 container
@@ -948,8 +1215,9 @@ const RoleAccessPage = () => {
                   ))}
                 </Grid>
               ))}
-            </AccordionDetails>
-          </Accordion>
+              </Box>
+            )}
+          </Box>
         ))}
       </Box>
 

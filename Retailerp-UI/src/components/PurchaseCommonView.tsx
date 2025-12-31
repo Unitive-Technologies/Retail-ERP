@@ -195,6 +195,7 @@ interface PurchaseCommonViewProps {
   headerOrder?: TableHeaderKey[];
   showQRCode?: boolean;
   qrCodeValue?: string;
+  state?: string;
 }
 
 const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
@@ -243,6 +244,7 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
   headerOrder = DEFAULT_HEADER_ORDER,
   showQRCode = false,
   qrCodeValue = '',
+  state = '',
 }) => {
   const theme = useTheme();
   const mergedColumnSizes = React.useMemo(
@@ -317,14 +319,14 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
     if (key === 'sno' && index === 0) {
       return 'Total';
     }
-    
+
     // For invoice layout: show empty for refNo and description columns when they are in first 3 positions
     if (index <= 2) {
       if (key === 'refNo' || key === 'description' || key === 'materialType' || key === 'type') {
         return '';
       }
     }
-    
+
     switch (key) {
       case 'quantity':
         return summary.totalQuantity;
@@ -451,7 +453,7 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
               <br />
               Mobile No - {companyData.mobile}
               <br />
-              GSTIN-{companyData.gstin}
+              GSTIN - {companyData.gstin}
             </Typography>
           </Box>
         </Box>
@@ -726,7 +728,7 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
               {headerOrder.map((key, keyIndex) => {
                 const columnWidth = getColumnWidth(key);
                 const totalContent = renderTotalCellContent(key, keyIndex);
-                
+
                 return (
                   <Grid
                     key={`total-${key}`}
@@ -795,7 +797,7 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
                   {summary.inWords}
                 </Typography>
               </Box>
-              
+
               {/* QR Code */}
               {showQRCode && qrCodeValue && (
                 <Box sx={{ mt: 2 }}>
@@ -986,96 +988,142 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
                     {summary.subTotal}
                   </Typography>
                 </Box>
-
-                {/* SGST */}
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    px: 3,
-                    py: 2,
-                    borderBottom: '1px solid #E0E0E0',
-                  }}
-                >
-                  <Typography
-                    style={{
-                      fontSize: theme.MetricsSizes.small_xx,
-                      fontWeight: theme.fontWeight.medium,
-                      color: theme.Colors.black,
-                      fontFamily: theme.fontFamily.roboto,
-                    }}
-                  >
-                    SGST
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Typography
-                      style={{
-                        fontSize: theme.MetricsSizes.small,
-                        fontWeight: theme.fontWeight.mediumBold,
-                        color: theme.Colors.black,
-                        fontFamily: theme.fontFamily.roboto,
-                      }}
-                    >
-                      {summary.sgstPercentage}
-                    </Typography>
-                    <Typography
-                      style={{
-                        fontSize: theme.MetricsSizes.small,
-                        fontWeight: theme.fontWeight.mediumBold,
-                        color: theme.Colors.black,
-                        fontFamily: theme.fontFamily.roboto,
-                      }}
-                    >
-                      {summary.sgstAmount}
-                    </Typography>
-                  </Box>
-                </Box>
-
-                {/* CGST */}
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    px: 3,
-                    py: 2,
-                    borderBottom: '1px solid #E0E0E0',
-                  }}
-                >
-                  <Typography
-                    style={{
-                      fontSize: theme.MetricsSizes.small_xx,
-                      fontWeight: theme.fontWeight.medium,
-                      color: theme.Colors.black,
-                      fontFamily: theme.fontFamily.roboto,
-                    }}
-                  >
-                    CGST
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Typography
-                      style={{
-                        fontSize: theme.MetricsSizes.small,
-                        fontWeight: theme.fontWeight.mediumBold,
-                        color: theme.Colors.black,
-                        fontFamily: theme.fontFamily.roboto,
-                      }}
-                    >
-                      {summary.cgstPercentage}
-                    </Typography>
-                    <Typography
+                {state === 'Tamil Nadu' ? (
+                  <>
+                    {/* SGST */}
+                    <Box
                       sx={{
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        color: '#000000',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        px: 3,
+                        py: 2,
+                        borderBottom: '1px solid #E0E0E0',
                       }}
                     >
-                      {summary.cgstAmount}
-                    </Typography>
-                  </Box>
-                </Box>
+                      <Typography
+                        style={{
+                          fontSize: theme.MetricsSizes.small_xx,
+                          fontWeight: theme.fontWeight.medium,
+                          color: theme.Colors.black,
+                          fontFamily: theme.fontFamily.roboto,
+                        }}
+                      >
+                        SGST
+                      </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Typography
+                          style={{
+                            fontSize: theme.MetricsSizes.small,
+                            fontWeight: theme.fontWeight.mediumBold,
+                            color: theme.Colors.black,
+                            fontFamily: theme.fontFamily.roboto,
+                          }}
+                        >
+                          {summary.sgstPercentage}
+                        </Typography>
+                        <Typography
+                          style={{
+                            fontSize: theme.MetricsSizes.small,
+                            fontWeight: theme.fontWeight.mediumBold,
+                            color: theme.Colors.black,
+                            fontFamily: theme.fontFamily.roboto,
+                          }}
+                        >
+                          {summary.sgstAmount}
+                        </Typography>
+                      </Box>
+                    </Box>
 
+                    {/* CGST */}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        px: 3,
+                        py: 2,
+                        borderBottom: '1px solid #E0E0E0',
+                      }}
+                    >
+                      <Typography
+                        style={{
+                          fontSize: theme.MetricsSizes.small_xx,
+                          fontWeight: theme.fontWeight.medium,
+                          color: theme.Colors.black,
+                          fontFamily: theme.fontFamily.roboto,
+                        }}
+                      >
+                        CGST
+                      </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Typography
+                          style={{
+                            fontSize: theme.MetricsSizes.small,
+                            fontWeight: theme.fontWeight.mediumBold,
+                            color: theme.Colors.black,
+                            fontFamily: theme.fontFamily.roboto,
+                          }}
+                        >
+                          {summary.cgstPercentage}
+                        </Typography>
+                        <Typography
+                          sx={{
+                            fontSize: '14px',
+                            fontWeight: 600,
+                            color: '#000000',
+                          }}
+                        >
+                          {summary.cgstAmount}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </>
+                ) : (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      px: 3,
+                      py: 2,
+                      borderBottom: '1px solid #E0E0E0',
+                    }}
+                  >
+                    <Typography
+                      style={{
+                        fontSize: theme.MetricsSizes.small_xx,
+                        fontWeight: theme.fontWeight.medium,
+                        color: theme.Colors.black,
+                        fontFamily: theme.fontFamily.roboto,
+                      }}
+                    >
+                      IGST
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Typography
+                        style={{
+                          fontSize: theme.MetricsSizes.small,
+                          fontWeight: theme.fontWeight.mediumBold,
+                          color: theme.Colors.black,
+                          fontFamily: theme.fontFamily.roboto,
+                        }}
+                      >
+                        {summary.sgstPercentage}
+                      </Typography>
+                      <Typography
+                        style={{
+                          fontSize: theme.MetricsSizes.small,
+                          fontWeight: theme.fontWeight.mediumBold,
+                          color: theme.Colors.black,
+                          fontFamily: theme.fontFamily.roboto,
+                        }}
+                      >
+                        {summary.sgstAmount}
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
                 {/* Discount */}
                 <Box
                   sx={{
@@ -1095,10 +1143,10 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
                       fontFamily: theme.fontFamily.roboto,
                     }}
                   >
-                    Discount
+                    Round Off
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <Typography
+                    {/* <Typography
                       style={{
                         fontSize: theme.MetricsSizes.small,
                         fontWeight: theme.fontWeight.mediumBold,
@@ -1107,7 +1155,7 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
                       }}
                     >
                       {summary.discountPercentage}
-                    </Typography>
+                    </Typography> */}
                     <Typography
                       style={{
                         fontSize: theme.MetricsSizes.small,

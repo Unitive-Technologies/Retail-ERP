@@ -87,8 +87,10 @@ const ChaneiraPromise = () => {
               key={feature.id}
               sx={{
                 display: 'flex',
-                gap: { xs: 0, md: 2 },
+                gap: { xs: 0.0, md: 2 },
                 p: 1,
+                alignItems:'center',
+                overflow:'hidden',
                 borderRadius: '150px',
                 border: `1px solid ${theme.Colors.primaryDarkEnd}`,
                 background:
@@ -98,9 +100,17 @@ const ChaneiraPromise = () => {
               }}
             >
               {index % 2 === 0 ? (
-                <img
+                <Box
+                  component="img"
                   src={PromiseStars}
-                  style={{ minWidth: '100px', minHeight: '100px' }}
+                  sx={{
+                    width: '100px',
+                    height: '100px',
+                    [theme.breakpoints.down('md')]: {
+                      width: '50px',
+                      height: '50px',
+                    },
+                  }}
                 />
               ) : null}
               <Box
@@ -109,8 +119,6 @@ const ChaneiraPromise = () => {
                   flexDirection: 'column',
                   alignItems: 'center',
                   flex: 1,
-                  py: 1,
-                  px: 2,
                   borderRadius: '150px',
                 }}
               >
@@ -119,6 +127,7 @@ const ChaneiraPromise = () => {
                   weight={600}
                   color={theme.Colors.black}
                   sx={{
+                    textAlign:'center',
                     fontSize: { xs: '13px', md: '18px' },
                     mb: 0.7,
                   }}
@@ -128,15 +137,24 @@ const ChaneiraPromise = () => {
                   weight={400}
                   color={theme.Colors.black}
                   sx={{
+                    textAlign:'center',
                     fontSize: { xs: '11px', md: '16px' },
                   }}
                 />
               </Box>
               {index % 2 !== 0 ? (
-                <img
+                <Box
+                  component="img"
                   src={PromiseStars}
-                  style={{ minWidth: '100px', minHeight: '100px' }}
-                />
+                   sx={{
+                    width: '100px',
+                    height: '100px',
+                    [theme.breakpoints.down('md')]: {
+                      width: '50px',
+                      height: '50px',
+                    },
+                  }}
+                ></Box>
               ) : null}
             </Box>
           ))}

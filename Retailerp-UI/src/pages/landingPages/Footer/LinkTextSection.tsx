@@ -2,12 +2,19 @@ import MUHTypography from '@components/MUHTypography';
 import { Box, useTheme } from '@mui/material';
 import Grid from '@mui/material/Grid2';
 
-type Props = {
-  title: string;
-  linkTexts: any[];
+type LinkItem = {
+  id?: string | number;
+  text: string;
 };
 
-const LinkTextSection = ({ title, linkTexts }: Props) => {
+type Props = {
+  title: string;
+  linkTexts: LinkItem[];
+  titleSx?: object;
+  linkTextStyle?: object;
+};
+
+const LinkTextSection = ({ title, linkTexts, titleSx, linkTextStyle }: Props) => {
   const theme = useTheme();
 
   return (
@@ -17,7 +24,9 @@ const LinkTextSection = ({ title, linkTexts }: Props) => {
         size={18}
         weight={600}
         color={theme.Colors.primaryDarkStart}
+        sx={titleSx}
       />
+
       <Grid
         sx={{
           display: 'flex',
@@ -26,16 +35,15 @@ const LinkTextSection = ({ title, linkTexts }: Props) => {
           mt: 2,
         }}
       >
-        {linkTexts.map((item) => {
-          return (
-            <MUHTypography
-              text={item.text}
-              size={18}
-              color="#1F1F29"
-              sx={{ cursor: 'pointer' }}
-            />
-          );
-        })}
+        {linkTexts.map((item, index) => (
+          <MUHTypography
+            key={item.id ?? `${item.text}-${index}`} // ✅ UNIQUE & SAFE
+            text={item.text}
+            size={18}
+            color="#1F1F29"
+            sx={{ cursor: 'pointer', ...linkTextStyle }}
+          />
+        ))}
       </Grid>
     </Box>
   );

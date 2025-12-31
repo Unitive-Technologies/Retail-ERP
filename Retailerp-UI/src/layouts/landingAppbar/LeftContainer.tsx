@@ -37,16 +37,16 @@ const LeftContainer = () => {
             component="img"
             src={LandingAppbarLogo}
             sx={{
-              width: { xs: '20px', md: 'auto' },
-              height: { xs: '20px', md: 'auto' },
+              width: { xs: '27px', md: 'auto' },
+              height: { xs: '27px', md: 'auto' },
             }}
           />
           <Box
             component="img"
             src={ProjectNameLogo}
             sx={{
-              width: { xs: '80px', md: 'auto' },
-              height: { xs: '15px', md: 'auto' },
+              width: { xs: '50px', md: 'auto' },
+              height: { xs: '18px', md: 'auto' },
               ml: { xs: 0.5, md: 1 },
             }}
           />

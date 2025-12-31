@@ -18,6 +18,12 @@ import MUHListItemCell from '@components/MUHListItemCell';
 import { useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { CONFIRM_MODAL } from '@constants/Constance';
+import MenuDropDown from '@components/MUHMenuDropDown';
+import {
+  MATERIAL_TYPE_LIST_COLUMN_MAPPING,
+  MATERIAL_TYPE_LIST_PDF_HEADERS,
+  PDF_TITLE,
+} from '@constants/PdfConstants';
 
 const MaterialTypeList = () => {
   const navigateTo = useNavigate();
@@ -26,6 +32,7 @@ const MaterialTypeList = () => {
   const [hiddenColumns, setHiddenColumns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmModalOpen, setConfirmModalOpen] = useState({ open: false });
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const initialValues = {
     status: 0,
     location: '',
@@ -112,7 +119,7 @@ const MaterialTypeList = () => {
     try {
       setConfirmModalOpen({ open: false });
 
-      const response = await API_SERVICES.MaterialTypeService.delete(
+      const response: any = await API_SERVICES.MaterialTypeService.delete(
         rowData.id,
         {
           successMessage: 'Material type deleted successfully!',
@@ -177,7 +184,7 @@ const MaterialTypeList = () => {
       setLoading(true);
 
       // API call to fetch material types with search parameter
-      const response = await API_SERVICES.MaterialTypeService.getAll({
+      const response: any = await API_SERVICES.MaterialTypeService.getAll({
         search: edit.getValue('search') || '',
       });
 
@@ -228,6 +235,27 @@ const MaterialTypeList = () => {
     };
   }, []);
 
+  // PDF / Print config
+  const columnMapping = MATERIAL_TYPE_LIST_COLUMN_MAPPING;
+  const pdfHeaders = MATERIAL_TYPE_LIST_PDF_HEADERS;
+  const fileName = PDF_TITLE.materialTypeList;
+
+  const pdfData: any = rows?.length
+    ? rows.map((row: any, index: number) => ({
+        s_no: index + 1,
+        material_type: row?.material_type || '',
+        material_price: formatCurrency(row?.material_price) || '-',
+      }))
+    : [];
+
+  const handleOpenDownloadMenu = (e: any) => {
+    setMenuAnchorEl(e.currentTarget as HTMLElement);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuAnchorEl(null);
+  };
+
   return (
     <>
       <Grid container width={'100%'} mt={1.2}>
@@ -237,19 +265,51 @@ const MaterialTypeList = () => {
           btnName="Create Material Type"
           navigateUrl={`/admin/master/collections/materialType/form?type=create`}
           navigateState={{ rowData: {}, type: CONFIRM_MODAL.create }}
-          showRefreshBtn={true}
-          onRefresh={fetchData}
+          showDownloadBtn={true}
+          onDownloadClick={handleOpenDownloadMenu}
+          onPrintClick={() => window.print()}
         />
-        <Grid container sx={contentLayout} mt={0}>
-          <Grid container sx={tableFilterContainerStyle}>
-            <CommonTableFilter
-              selectItems={columns}
-              selectedValue={hiddenColumns}
-              handleSelectValue={handleSelectValue}
-              handleFilterClear={handleFilterClear}
-              edit={edit}
+        <Grid container sx={contentLayout} className="print-area" mt={0}>
+          {/* Print heading */}
+          <div
+            className="print-only"
+            style={{ width: '100%', marginBottom: 12 }}
+          >
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 600,
+                color: '#000',
+                paddingBottom: 8,
+                marginBottom: 8,
+              }}
+            >
+              Material Type List ({rows.length})
+            </div>
+          </div>
+
+          {/* Filters & download - hide in print */}
+          <div className="print-hide" style={{ width: '100%' }}>
+            <MenuDropDown
+              anchorEl={menuAnchorEl}
+              handleCloseMenu={handleCloseMenu}
+              hiddenCols={hiddenColumns}
+              columnMapping={columnMapping}
+              pdfData={pdfData}
+              pdfHeaders={pdfHeaders}
+              fileName={fileName}
+              address={''}
             />
-          </Grid>
+            <Grid container sx={tableFilterContainerStyle}>
+              <CommonTableFilter
+                selectItems={columns}
+                selectedValue={hiddenColumns}
+                handleSelectValue={handleSelectValue}
+                handleFilterClear={handleFilterClear}
+                edit={edit}
+              />
+            </Grid>
+          </div>
 
           <MUHTable
             columns={columns.filter(

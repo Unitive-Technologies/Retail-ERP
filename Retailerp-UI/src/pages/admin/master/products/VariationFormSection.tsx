@@ -240,7 +240,8 @@ const VariationFormSection = ({
     const remainingQuantityRaw = Number(edit.getValue('remaining_quantity'));
     const itemDetailsList: any[] = edit.getValue('item_details') || [];
     const totalGrossExisting = itemDetailsList.reduce(
-      (acc, detail) => acc + (parseNumber(detail?.gross_weight) * parseNumber(detail?.quantity)),
+      (acc, detail) =>
+        acc + parseNumber(detail?.gross_weight) * parseNumber(detail?.quantity),
       0
     );
     const totalQuantityExisting = itemDetailsList.reduce(
@@ -257,10 +258,13 @@ const VariationFormSection = ({
     const currentQuantity = parseNumber(item?.quantity);
 
     if (field === 'gross_weight') {
-      const currentItemWeightContribution = currentGrossWeight * currentQuantity;
+      const currentItemWeightContribution =
+        currentGrossWeight * currentQuantity;
       const newItemWeightContribution = numericValue * currentQuantity;
       const newTotalGross =
-        totalGrossExisting - currentItemWeightContribution + newItemWeightContribution;
+        totalGrossExisting -
+        currentItemWeightContribution +
+        newItemWeightContribution;
       if (newTotalGross > grossCapacity) {
         toast.error(
           isWithVariation
@@ -281,10 +285,13 @@ const VariationFormSection = ({
         return false;
       }
       // Also check weight when quantity changes
-      const currentItemWeightContribution = currentGrossWeight * currentQuantity;
+      const currentItemWeightContribution =
+        currentGrossWeight * currentQuantity;
       const newItemWeightContribution = currentGrossWeight * numericValue;
       const newTotalGross =
-        totalGrossExisting - currentItemWeightContribution + newItemWeightContribution;
+        totalGrossExisting -
+        currentItemWeightContribution +
+        newItemWeightContribution;
       if (newTotalGross > grossCapacity) {
         toast.error(
           isWithVariation
@@ -387,6 +394,19 @@ const VariationFormSection = ({
   };
 
   const handleAddMeasurement = () => {
+    const currentMeasurements = item?.measurement_details || [];
+    const currentMeasurement = currentMeasurements[0];
+
+    if (
+      !currentMeasurement ||
+      !currentMeasurement.label_name?.trim() ||
+      !currentMeasurement.value?.trim() ||
+      !currentMeasurement.measurement_type
+    ) {
+      toast.error('Please fill all  Measurement detail.');
+      return;
+    }
+
     updateItemDetails((currentItem: any) => ({
       ...currentItem,
       measurement_details: [
@@ -559,13 +579,18 @@ const VariationFormSection = ({
         inputLabel="Quantity"
         value={item?.quantity}
         onChange={(e: any) => {
-          if (isNaN(Number(e.target.value))) {
+          const value = e.target.value;
+          if (isNaN(Number(value))) {
             return;
           }
-          // if (!canUpdateAgainstRemaining('quantity', e.target.value)) {
+          if (value !== '' && Number(value) <= 0) {
+            toast.error('Quantity must be greater than 0');
+            return;
+          }
+          // if (!canUpdateAgainstRemaining('quantity', value)) {
           //   return;
           // }
-          handleInputChange('quantity', e.target.value);
+          handleInputChange('quantity', value);
         }}
         labelFlexSize={4.3}
         isError={fieldErrors?.[`item_details_${index}_quantity`]}
@@ -613,33 +638,53 @@ const VariationFormSection = ({
             </span>
           </Typography>
         </Grid>
+
         <Grid container gap={1} size={'grow'}>
           <Grid size={5.9}>
             <MUHSelectBoxComponent
               value={item?.making_charge_type}
-              onChange={(e: any) =>
-                handleInputChange('making_charge_type', e.target.value)
-              }
+              onChange={(e: any) => {
+                const newType = e.target.value;
+                updateItemDetails((currentItem: any) => ({
+                  ...currentItem,
+                  making_charge_type: newType,
+                  making_charge: '',
+                }));
+              }}
               selectItems={MakingChageType}
               {...commonSelectBoxProps}
             />
           </Grid>
+
           <Grid size={'grow'}>
             <TextInput
               {...commonTextInputProps}
               value={item?.making_charge}
               onChange={(e: any) => {
-                if (!allowDecimalOnly(e.target.value)) {
+                const value = e.target.value;
+
+                if (!allowDecimalOnly(value)) return;
+
+                if (value !== '' && Number(value) <= 0) {
+                  toast.error('Making charge must be greater than 0');
                   return;
                 }
-                handleInputChange('making_charge', e.target.value);
+
+                if (value === '') {
+                  handleInputChange('making_charge', '');
+                  return;
+                }
+
+                handleInputChange('making_charge', value);
               }}
               isError={fieldErrors?.[`item_details_${index}_making_charge`]}
               slotProps={{
                 input: {
                   endAdornment: (
                     <TextInputAdornment
-                      text={item.making_charge_type == 'Percentage' ? '%' : '₹'}
+                      text={
+                        item?.making_charge_type === 'Percentage' ? '%' : '₹'
+                      }
                       width={55}
                       position="end"
                     />
@@ -675,9 +720,14 @@ const VariationFormSection = ({
           <Grid size={5.9}>
             <MUHSelectBoxComponent
               value={item?.wastage_type}
-              onChange={(e: any) =>
-                handleInputChange('wastage_type', e.target.value)
-              }
+              onChange={(e: any) => {
+                const newType = e.target.value;
+                updateItemDetails((currentItem: any) => ({
+                  ...currentItem,
+                  wastage_type: newType,
+                  wastage: '',
+                }));
+              }}
               selectItems={MakingChageType}
               {...commonSelectBoxProps}
             />

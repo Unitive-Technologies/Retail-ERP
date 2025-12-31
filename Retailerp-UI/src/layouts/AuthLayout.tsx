@@ -1,18 +1,27 @@
 import { Suspense } from 'react';
 import { Outlet } from 'react-router';
-// import Container from '@mui/material/Container';
-import { Box, CircularProgress, useTheme } from '@mui/material';
+import { CircularProgress } from '@mui/material';
+import { Grid } from '@mui/system';
+import { LandingAppbar } from './landingAppbar/LandingAppbar';
+import Footer from '@pages/landingPages/Footer/Footer';
+import ScrollToTop from '@components/ScrollToTop';
 
 const AuthLayout = () => {
-  const theme = useTheme();
   return (
-    // <Container id="auth-layout" component="main" disableGutters maxWidth="lg">
-    <Box sx={{ backgroundColor: theme.Colors.snowWhite, height: '100vh' }}>
+    <Grid
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+      }}
+    >
+      <ScrollToTop />
+      <LandingAppbar />
       <Suspense fallback={<CircularProgress />}>
         <Outlet />
       </Suspense>
-    </Box>
-    // </Container>
+      <Footer />
+    </Grid>
   );
 };
 

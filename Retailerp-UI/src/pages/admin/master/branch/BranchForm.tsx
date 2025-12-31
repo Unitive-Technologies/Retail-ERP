@@ -21,9 +21,9 @@ import {
 } from '@components/CommonStyles';
 import {
   AutoSearchSelectWithLabel,
+  BrowserImageUpload,
   ButtonComponent,
   DragDropUpload,
-  BrowserImageUpload,
   styles,
   TextInput,
 } from '@components/index';
@@ -36,13 +36,14 @@ import {
 import TabFormDetails from './TabFormDetails';
 import FormSectionHeader from '@pages/admin/common/FormSectionHeader';
 import { Download } from '@mui/icons-material';
-import { Typography } from '@mui/material';
+import { Typography, useTheme, Box } from '@mui/material';
 import InvoiceSetting from './InvoiceSetting';
 import { API_SERVICES } from '@services/index';
 import { HTTP_STATUSES, docNames } from '@constants/Constance';
 import { DropDownServiceAll } from '@services/DropDownServiceAll';
 
 const BranchForm = () => {
+  const theme = useTheme();
   const navigateTo = useNavigate();
   const location = useLocation();
   const params = new URLSearchParams(location?.search);
@@ -56,6 +57,8 @@ const BranchForm = () => {
   const [stateOptions, setStateOptions] = useState([]);
   const [districtOptions, setDistrictOptions] = useState([]);
   const isReadOnly = type === 'view';
+  const isCreateMode = type === 'create';
+  const isEditMode = type === 'edit';
   const stateOption = BranchState.find(
     (state: any) => state.value === rowData.state_id
   );
@@ -65,6 +68,12 @@ const BranchForm = () => {
   const branchStatusOpt = BranchStatus.find(
     (opt: any) => opt.value === rowData.status || null
   );
+  
+  // Filter status options: only show Active during creation, show all during edit/view
+  const availableStatusOptions = isCreateMode
+    ? BranchStatus.filter((option) => option.value === 'Active')
+    : BranchStatus;
+
   const InitialValues: any = {
     branch_no: rowData.branch_no || '',
     branch_name: rowData.branch_name || '',
@@ -80,7 +89,7 @@ const BranchForm = () => {
     signature_file: rowData.signature_url
       ? { name: String(rowData.signature_url).split('/').pop() }
       : null,
-    status: branchStatusOpt,
+    status: branchStatusOpt || (isCreateMode ? { label: 'Active', value: 'Active' } : null),
     bank_details: {
       branch_name: '',
       account_holder_name: '',
@@ -139,6 +148,15 @@ const BranchForm = () => {
   };
 
   const validateMyProfile = () => {
+    // During creation, validate that branch status is Active
+    if (isCreateMode) {
+      const statusValue = edit.getValue('status');
+      const status = statusValue?.value ?? statusValue ?? '';
+      if (status && status !== 'Active' && status !== 'active') {
+        return false;
+      }
+    }
+    
     return !Object.values(fieldErrors).some((error) => error);
   };
 
@@ -324,6 +342,16 @@ const BranchForm = () => {
       }
       return;
     } else {
+      // Additional validation: Check branch status during creation
+      if (isCreateMode) {
+        const statusValue = edit.getValue('status');
+        const status = statusValue?.value ?? statusValue ?? '';
+        if (status && status !== 'Active' && status !== 'active') {
+          setIsError(true);
+          return;
+        }
+      }
+
       const isValidMyprofile = validateMyProfile();
       const isValidBankDetails = validateBankDetails();
       const isValidKycDetails = validateKycFields();
@@ -934,10 +962,7 @@ const BranchForm = () => {
                   label="District"
                   options={districtOptions}
                   isReadOnly={isReadOnly}
-                  value={districtOptions.find(
-                    (option) =>
-                      option.value === edit.getValue('district')?.value
-                  )}
+                  value={edit.getValue('district')}
                   onChange={(e, value) => {
                     edit.update({
                       district: value,
@@ -975,7 +1000,7 @@ const BranchForm = () => {
                 <AutoSearchSelectWithLabel
                   required
                   label="Status"
-                  options={BranchStatus}
+                  options={availableStatusOptions}
                   isReadOnly={isReadOnly}
                   value={edit.getValue('status')}
                   onChange={(e, value) => edit.update({ status: value })}
@@ -984,24 +1009,30 @@ const BranchForm = () => {
               </Grid>
               <Grid size={{ xs: 12, md: 6 }} mt={'8px'} sx={styles.rightItem}>
                 {isReadOnly ? (
-                  edit.getValue('signature') ? (
-                    <Grid container alignItems={'center'} columnSpacing={2}>
-                      <Grid size={4}>
+                  edit.getValue('signature') || rowData.signature_url ? (
+                    <Grid
+                      container
+                      justifyContent={'center'}
+                      alignItems={'center'}
+                      sx={{ width: '100%' }}
+                    >
+                      <Grid size={5}>
                         <Typography
+                          variant="inherit"
                           sx={{
-                            fontSize: '14px',
-                            fontWeight: 500,
-                            fontFamily: 'Inter, sans-serif',
+                            color: theme.Colors.blackPrimary,
+                            fontSize: theme.MetricsSizes.small_xx,
+                            fontWeight: theme.fontWeight.medium,
                           }}
                         >
                           Signature
-                          <span style={{ color: '#FF0000' }}>&nbsp;*</span>
                         </Typography>
                       </Grid>
-                      <Grid size={8}>
+                      <Grid size={'grow'}>
                         <ButtonComponent
                           buttonText="Download"
-                          btnWidth={'100%'}
+                          btnWidth="100%"
+                          btnHeight={40}
                           startIcon={<Download />}
                           btnBorderRadius={2}
                           onClick={() =>

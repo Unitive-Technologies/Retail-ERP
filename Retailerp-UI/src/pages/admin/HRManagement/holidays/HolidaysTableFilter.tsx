@@ -13,6 +13,7 @@ type Props = {
   isOfferPlan?: boolean;
   onMaterialTypeChange?: (option: any) => void;
   onSearchChange?: (text: string) => void;
+  onDateChange?: (newDate: any) => void;
 };
 
 const HolidaysTableFilter = ({
@@ -21,8 +22,8 @@ const HolidaysTableFilter = ({
   selectedValue,
   handleFilterClear,
   edit,
-
   onSearchChange,
+  onDateChange,
 }: Props) => {
   return (
     <Grid container sx={tableFilterContainerStyle}>
@@ -33,10 +34,18 @@ const HolidaysTableFilter = ({
           height={28}
           placeholder="Date"
           value={edit.getValue('joining_date')}
-          handleChange={(newDate: any) =>
-            edit.update({ joining_date: newDate })
-          }
-          handleClear={() => edit.update({ joining_date: null })}
+          handleChange={(newDate: any) => {
+            edit.update({ joining_date: newDate });
+            if (onDateChange) {
+              onDateChange(newDate);
+            }
+          }}
+          handleClear={() => {
+            edit.update({ joining_date: null });
+            if (onDateChange) {
+              onDateChange(null);
+            }
+          }}
         />
       </Grid>
       <CommonTableFilter

@@ -23,7 +23,10 @@ type Props = {
 
 const Employee = () => {
   const theme = useTheme();
-  const [selectedTab, setSelectedTab] = useState(0);
+  const [selectedTab, setSelectedTab] = useState(() => {
+    const savedTab = localStorage.getItem('employee-selected-tab');
+    return savedTab ? parseInt(savedTab, 10) : 0;
+  });
 
   const tabsData = [
     {
@@ -53,6 +56,7 @@ const Employee = () => {
 
   const onTabChange = (value: any) => {
     setSelectedTab(value);
+    localStorage.setItem('employee-selected-tab', value.toString());
   };
 
   const renderTabContent = (tabVal: any) => {

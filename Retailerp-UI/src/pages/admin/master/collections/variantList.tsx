@@ -15,6 +15,12 @@ import { CONFIRM_MODAL, HTTP_STATUSES } from '@constants/Constance';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material';
 import { API_SERVICES } from '@services/index';
+import MenuDropDown from '@components/MUHMenuDropDown';
+import {
+  PDF_TITLE,
+  VARIANT_LIST_COLUMN_MAPPING,
+  VARIANT_LIST_PDF_HEADERS,
+} from '@constants/PdfConstants';
 
 const VariantList = () => {
   const navigateTo = useNavigate();
@@ -23,6 +29,7 @@ const VariantList = () => {
   const [hiddenColumns, setHiddenColumns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmModalOpen, setConfirmModalOpen] = useState({ open: false });
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const initialValues = {
     status: 0,
     location: '',
@@ -155,6 +162,30 @@ const VariantList = () => {
     ];
   };
 
+  // PDF / Print config
+  const columnMapping = VARIANT_LIST_COLUMN_MAPPING;
+  const pdfHeaders = VARIANT_LIST_PDF_HEADERS;
+  const fileName = PDF_TITLE.variantList;
+
+  const pdfData: any = variantData?.length
+    ? variantData.map((row: any, index: number) => ({
+        s_no: index + 1,
+        variant_type: row?.variant_type || '-',
+        values:
+          Array.isArray(row?.Values) && row.Values.length
+            ? row.Values.join(', ')
+            : row?.Values ?? '-',
+      }))
+    : [];
+
+  const handleOpenDownloadMenu = (e: any) => {
+    setMenuAnchorEl(e.currentTarget as HTMLElement);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuAnchorEl(null);
+  };
+
   return (
     <>
       <Grid container width={'100%'} mt={1.2}>
@@ -164,17 +195,51 @@ const VariantList = () => {
           btnName="Variants"
           navigateUrl="/admin/master/collections/variant/form?type=create"
           navigateState={{ rowData: {}, type: CONFIRM_MODAL.create }}
+          showDownloadBtn={true}
+          onDownloadClick={handleOpenDownloadMenu}
+          onPrintClick={() => window.print()}
         />
-        <Grid container sx={contentLayout} mt={0}>
-          <Grid container sx={tableFilterContainerStyle}>
-            <CommonTableFilter
-              selectItems={columns}
-              selectedValue={hiddenColumns}
-              handleSelectValue={handleSelectValue}
-              handleFilterClear={handleFilterClear}
-              edit={edit}
+        <Grid container sx={contentLayout} className="print-area" mt={0}>
+          {/* Print heading */}
+          <div
+            className="print-only"
+            style={{ width: '100%', marginBottom: 12 }}
+          >
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 600,
+                color: '#000',
+                paddingBottom: 8,
+                marginBottom: 8,
+              }}
+            >
+              Variant List ({variantData.length})
+            </div>
+          </div>
+
+          {/* Filters & download - hide in print */}
+          <div className="print-hide" style={{ width: '100%' }}>
+            <MenuDropDown
+              anchorEl={menuAnchorEl}
+              handleCloseMenu={handleCloseMenu}
+              hiddenCols={hiddenColumns}
+              columnMapping={columnMapping}
+              pdfData={pdfData}
+              pdfHeaders={pdfHeaders}
+              fileName={fileName}
+              address={''}
             />
-          </Grid>
+            <Grid container sx={tableFilterContainerStyle}>
+              <CommonTableFilter
+                selectItems={columns}
+                selectedValue={hiddenColumns}
+                handleSelectValue={handleSelectValue}
+                handleFilterClear={handleFilterClear}
+                edit={edit}
+              />
+            </Grid>
+          </div>
 
           <MUHTable
             columns={columns.filter(

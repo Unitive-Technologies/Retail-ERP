@@ -27,3 +27,4 @@ export { default as QRCodeGenerator } from './MUHQRCodeGenerator';
 export { default as SimpleQRCode } from './SimpleQRCode';
 export { default as TotalSummary } from './TotalSummary';
 export { default as PurchaseCommonView } from './PurchaseCommonView';
+export { default as ScrollToTop } from './ScrollToTop';

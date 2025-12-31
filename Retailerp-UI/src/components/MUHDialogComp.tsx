@@ -10,7 +10,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { CloseIconDialog, LandScape, Portrait } from '@assets/Images';
+import { DialogCloseIcon, LandScape, Portrait } from '@assets/Images';
 import Grid from '@mui/material/Grid2';
 
 type DialogTitlePropsType = {
@@ -45,6 +45,7 @@ type DialogProp = DialogTitlePropsType & {
   dialogPadding?: string | number;
   contentPadding?: string | number;
   borderRadius?: number;
+  dialogContentStyle?: React.CSSProperties;
 };
 
 export const DialogTitleComp = ({
@@ -97,7 +98,7 @@ export const DialogTitleComp = ({
 
       {onClose ? (
         <IconButton onClick={onClose} disableRipple>
-          <img src={CloseIconDialog} />
+          <DialogCloseIcon />
         </IconButton>
       ) : null}
     </Box>
@@ -122,7 +123,8 @@ const MUHDialogComp = ({
   showTitle = true,
   dialogPadding = '15px 12px 15px 20px',
   contentPadding = 'auto',
-  borderRadius = 5
+  borderRadius = 5,
+  dialogContentStyle,
 }: DialogProp) => {
   return (
     <Dialog
@@ -135,6 +137,9 @@ const MUHDialogComp = ({
             height: dialogHeight || 770,
             borderRadius: borderRadius,
             padding: dialogPadding,
+            '.MuiDialogContent-root': {
+              ...dialogContentStyle,
+            },
           },
         },
       }}

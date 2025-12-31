@@ -31,7 +31,7 @@ import { EmployeeService } from '@services/EmployeeService';
 import { HTTP_STATUSES } from '@constants/Constance';
 import { API_SERVICES } from '@services/index';
 import { DropDownServiceAll } from '@services/DropDownServiceAll';
-import { EmpDesignationDropdownService } from '@services/EmpDesignationDropdownService';
+import { EmployeeRoleDropdownService } from '@services/EmployeeRoleDropdownService';
 import { EmpCodeAutoGenerationService } from '@services/EmpCodeAutoGenerationService';
 import { EmpDepartmentService } from '@services/EmpDepartmentService';
 
@@ -44,6 +44,7 @@ const CreateEmployee = () => {
   const [isDocumentUploading, setIsDocumentUploading] = useState(false);
   const [forceRender, setForceRender] = useState(0);
   const [branchOptions, setBranchOptions] = useState([]);
+  const [branchStatusMap, setBranchStatusMap] = useState<Record<string, string>>({});
   const [designationOptions, setDesignationOptions] = useState([]);
   const [departmentOptions, setDepartmentOptions] = useState([]);
   const [employmentTypeOptions] = useState([
@@ -75,6 +76,11 @@ const CreateEmployee = () => {
   const isCreateMode = type === 'create';
   const isViewMode = type === 'view';
 
+  // Filter status options: only show Active during creation, show all during edit/view
+  const availableStatusOptions = isCreateMode
+    ? statusOptions.filter((option) => option.value === 'Active')
+    : statusOptions;
+
   const ACCEPTED_MIME_TYPES = [
     'image/jpeg',
     'image/jpg',
@@ -97,7 +103,7 @@ const CreateEmployee = () => {
     gender: rowData?.gender || '',
     dob: rowData?.dob ? dayjs(rowData.dob) : null,
     branch: rowData?.branch || '',
-    status: rowData?.status || '',
+    status: rowData?.status || (isCreateMode ? { label: 'Active', value: 'Active' } : null),
     image: rowData?.image || '',
     contact_details: {
       mobile_no: rowData?.contact_details?.mobile_no || '',
@@ -202,6 +208,26 @@ const CreateEmployee = () => {
   };
 
   const validateBasicDetails = () => {
+    // During creation, validate that selected branch is Active
+    if (isCreateMode) {
+      const branchValue = edit.getValue('branch');
+      const branchId = branchValue?.value ?? branchValue ?? null;
+      
+      if (branchId) {
+        const branchStatus = branchStatusMap[branchId.toString()];
+        if (branchStatus && branchStatus !== 'Active' && branchStatus !== 'active') {
+          return false;
+        }
+      }
+
+      // During creation, validate that employee status is Active
+      const statusValue = edit.getValue('status');
+      const status = statusValue?.value ?? statusValue ?? '';
+      if (status && status !== 'Active' && status !== 'active') {
+        return false;
+      }
+    }
+    
     return !Object.values(fieldErrors).some((error) => error);
   };
 
@@ -517,10 +543,8 @@ const CreateEmployee = () => {
       ? Number(departmentValue?.value ?? departmentValue)
       : null;
 
-    const designationValue = edit.getValue('designation');
-    const designationId = designationValue
-      ? Number(designationValue?.value ?? designationValue)
-      : null;
+    const roleValue = edit.getValue('designation');
+    const roleId = roleValue ? Number(roleValue?.value ?? roleValue) : null;
 
     const branchValue = edit.getValue('branch');
     const branchId = branchValue
@@ -531,7 +555,7 @@ const CreateEmployee = () => {
       employee_no: edit.getValue('employee_no') || '',
       employee_name: edit.getValue('employee_name') || '',
       department_id: departmentId,
-      designation_id: designationId,
+      role_id: roleId,
       joining_date: edit.getValue('joining_date')?.format('YYYY-MM-DD') || '',
       employment_type:
         edit.getValue('employment_type')?.value ??
@@ -586,23 +610,39 @@ const CreateEmployee = () => {
     employeePayload.kyc_documents = kycDocuments;
     employeePayload.experiences = experiences;
 
-    // Handle login details
     const loginUserName = edit.getValue('login_details.user_name');
     const loginPassword = edit.getValue('login_details.password');
 
-    // Always include login object, but only include password_hash if password is provided
-    // For updates, if password is empty, don't send password_hash (password won't be changed)
-    employeePayload.login = {
-      email: loginUserName || '',
-      role_id: 4,
-    };
-
-    // Only include password_hash if password is provided
-    if (loginPassword) {
-      employeePayload.login.password_hash = loginPassword;
+    if (loginUserName && loginPassword) {
+      employeePayload.login = {
+        email: loginUserName,
+        password_hash: loginPassword,
+        role_id: 4,
+      };
     }
 
-    // Only Basic Details and Contact Details are required
+    // Additional validation: Check branch and employee status during creation
+    if (isCreateMode) {
+      const branchValue = edit.getValue('branch');
+      const branchId = branchValue?.value ?? branchValue ?? null;
+      
+      if (branchId) {
+        const branchStatus = branchStatusMap[branchId.toString()];
+        if (branchStatus && branchStatus !== 'Active' && branchStatus !== 'active') {
+          setIsError(true);
+          return;
+        }
+      }
+
+      // Validate employee status during creation
+      const statusValue = edit.getValue('status');
+      const status = statusValue?.value ?? statusValue ?? '';
+      if (status && status !== 'Active' && status !== 'active') {
+        setIsError(true);
+        return;
+      }
+    }
+
     if (!isValidBasicDetails || !isValidContactDetails) {
       setIsError(true);
       toast.error('Please fill all required fields correctly');
@@ -617,8 +657,6 @@ const CreateEmployee = () => {
       !isValidLoginDetails
     ) {
       setIsError(true);
-      // Don't return here - let the individual validation functions show their specific error messages
-      return;
     }
 
     setIsError(false);
@@ -746,6 +784,14 @@ const CreateEmployee = () => {
           res?.status < HTTP_STATUSES.BAD_REQUEST &&
           Array.isArray(res?.data?.data?.branches)
         ) {
+          // Create a map of branch ID to status for validation
+          const statusMap: Record<string, string> = {};
+          res.data.data.branches.forEach((branch: any) => {
+            statusMap[branch.id?.toString() ?? ''] = branch.status || '';
+          });
+          setBranchStatusMap(statusMap);
+
+          // Show all branches in dropdown (no filtering)
           setBranchOptions(
             res.data.data.branches.map((branch: any) => ({
               label: branch.branch_name,
@@ -755,25 +801,7 @@ const CreateEmployee = () => {
         }
       } catch (err) {
         setBranchOptions([]);
-      }
-    };
-
-    const fetchDesignations = async () => {
-      try {
-        const res = await EmpDesignationDropdownService.getDesignations();
-        if (
-          res?.status < HTTP_STATUSES.BAD_REQUEST &&
-          Array.isArray(res.data.data?.designations)
-        ) {
-          const options = res.data.data.designations.map((desig: any) => ({
-            label: desig.name,
-            value: desig.id?.toString() ?? '',
-          }));
-          setDesignationOptions(options);
-          console.log('Designation Options:', options);
-        }
-      } catch (err) {
-        setDesignationOptions([]);
+        setBranchStatusMap({});
       }
     };
 
@@ -810,7 +838,6 @@ const CreateEmployee = () => {
 
     fetchDepartments();
     fetchBranches();
-    fetchDesignations();
     if (isCreateMode) {
       fetchEmployeeCode();
     }
@@ -838,6 +865,43 @@ const CreateEmployee = () => {
     edit?.getValue('bank_details'),
   ]);
 
+  useEffect(() => {
+    const departmentValue = edit.getValue('department');
+    const departmentId = departmentValue
+      ? Number(departmentValue?.value ?? departmentValue)
+      : null;
+
+    if (!departmentId) {
+      setDesignationOptions([]);
+      return;
+    }
+
+    const fetchRoles = async (deptId: number) => {
+      try {
+        const res = await EmployeeRoleDropdownService.getDropdown({
+          department_id: deptId,
+        });
+        if (
+          res?.status < HTTP_STATUSES.BAD_REQUEST &&
+          Array.isArray(res.data.data?.roles)
+        ) {
+          const options = res.data.data.roles.map((role: any) => ({
+            label: role.name,
+            value: role.id?.toString() ?? '',
+          }));
+          setDesignationOptions(options);
+          console.log('Role Options:', options);
+        } else {
+          setDesignationOptions([]);
+        }
+      } catch (err) {
+        setDesignationOptions([]);
+      }
+    };
+
+    fetchRoles(departmentId);
+  }, [edit?.getValue('department')]);
+
   const fetchContactDetailsFromGetAll = async (employeeId: string) => {
     try {
       const allResponse = await EmployeeService.getAll();
@@ -860,6 +924,7 @@ const CreateEmployee = () => {
           relationship: employeeWithContact.relationship || '',
           emergency_contact_number:
             employeeWithContact.emergency_contact_number || '',
+          branch_name: employeeWithContact.branch_name || '',
         };
       }
       return null;
@@ -925,7 +990,8 @@ const CreateEmployee = () => {
         const mapIdToFormValue = (
           id: number,
           field: string,
-          apiData?: any
+          apiData?: any,
+          contactDataFromGetAll?: any
         ): { label: string; value: string } => {
           if (!id || typeof id !== 'number') {
             return { label: '', value: '' };
@@ -943,9 +1009,19 @@ const CreateEmployee = () => {
                 (id === 1 ? 'Manager' : 'Assistant Manager');
               return { label: desigName, value: id.toString() };
             case 'branch':
+              // First try to get from branchOptions (most reliable)
+              const branchFromOptions = branchOptions.find(
+                (opt: any) => opt.value === id.toString() || opt.value === id
+              ) as { label: string; value: string | number } | undefined;
+              if (branchFromOptions) {
+                return { label: branchFromOptions.label, value: id.toString() };
+              }
+              // Fallback to contactData from GetAll (which has branch_name)
               const branchName =
+                contactDataFromGetAll?.branch_name ||
                 apiData?.branch?.branch_name ||
-                (id === 1 ? 'Main Branch' : 'Secondary Branch');
+                employeeData?.branch_name ||
+                '';
               return { label: branchName, value: id.toString() };
             default:
               return { label: `Option ${id}`, value: id.toString() };
@@ -959,14 +1035,16 @@ const CreateEmployee = () => {
             ? mapIdToFormValue(
                 employeeData.department_id,
                 'department',
-                employeeData
+                employeeData,
+                contactData
               )
             : null,
-          designation: employeeData.designation_id
+          designation: employeeData.role_id
             ? mapIdToFormValue(
-                employeeData.designation_id,
+                employeeData.role_id,
                 'designation',
-                employeeData
+                employeeData,
+                contactData
               )
             : null,
           joining_date: employeeData.joining_date
@@ -985,7 +1063,12 @@ const CreateEmployee = () => {
             ? dayjs(employeeData.date_of_birth)
             : null,
           branch: employeeData.branch_id
-            ? mapIdToFormValue(employeeData.branch_id, 'branch', employeeData)
+            ? mapIdToFormValue(
+                employeeData.branch_id,
+                'branch',
+                employeeData,
+                contactData
+              )
             : null,
           status: employeeData.status
             ? mapEnumToFormValue(employeeData.status, 'status')
@@ -1206,7 +1289,12 @@ const CreateEmployee = () => {
               required
               label="Department"
               options={departmentOptions}
-              value={edit.getValue('department')}
+              value={
+                departmentOptions.find(
+                  (opt: any) =>
+                    opt.value === (edit.getValue('department')?.value ?? null)
+                ) || null
+              }
               onChange={(e, value) => edit.update({ department: value })}
               isError={hasError(fieldErrors.department)}
               isReadOnly={isReadOnly}
@@ -1297,7 +1385,7 @@ const CreateEmployee = () => {
             <AutoSearchSelectWithLabel
               required
               label="Status"
-              options={statusOptions}
+              options={availableStatusOptions}
               value={edit.getValue('status')}
               onChange={(e, value) => edit.update({ status: value })}
               isError={hasError(fieldErrors.status)}

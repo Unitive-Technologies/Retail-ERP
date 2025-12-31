@@ -1,4 +1,4 @@
-import { Grid, Tab, Tabs, Typography, useTheme } from '@mui/material';
+import {  Tab, Tabs, Typography, useTheme } from '@mui/material';
 import React, {
   useEffect,
   useState,
@@ -6,6 +6,7 @@ import React, {
   forwardRef,
 } from 'react';
 import { Breakpoints } from '../theme/schemes/PurelightTheme';
+import Grid from '@mui/material/Grid2';
 
 export const ORIENTATION = {
   VERTICAL: 'vertical',

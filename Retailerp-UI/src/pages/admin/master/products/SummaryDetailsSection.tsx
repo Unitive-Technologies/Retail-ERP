@@ -294,7 +294,7 @@ const SummaryDetailsSection = ({ edit, purchaseRecord }: Props) => {
           ))}
         </Grid>
 
-        <Grid width={'100%'}>
+        <Grid width={'100%'} sx={{ zIndex: 1 }}>
           <ButtonComponent
             buttonText="View Summary"
             btnHeight={35}

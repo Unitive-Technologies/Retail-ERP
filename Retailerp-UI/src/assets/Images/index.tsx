@@ -208,15 +208,19 @@ import TotalPayableIcon from './TotalPayableIcon.svg?react';
 import StockWeightIcon from './StockWeightIcon.svg?react';
 import TotalQuantityIcon from './TotalQuantityIcon.svg?react';
 import DateIconNew from './DateIconNew.svg?react';
-import  TotalOrder  from './TotalOrder.svg?react';
-import  NewOrder  from './NewOrder.svg?react';
-import  ShippedIcon2  from './ShippedIcon2.svg?react';
-import  PartiallyDelivered  from './PartiallyDelivered.svg?react';
-import  Delivered  from './Delivered.svg?react';
-import  SearchIcon  from './SearchIcon.svg?react';
-import  YoutubeIcon2  from './YoutubeIcon2.svg?react';
-import  FacebookIcon2  from './FacebookIcon2.svg?react';
-import  InstagramIcon2  from './InstagramIcon2.svg?react';
+import TotalOrder from './TotalOrder.svg?react';
+import NewOrder from './NewOrder.svg?react';
+import ShippedIcon2 from './ShippedIcon2.svg?react';
+import PartiallyDelivered from './PartiallyDelivered.svg?react';
+import Delivered from './Delivered.svg?react';
+import SearchIcon from './SearchIcon.svg?react';
+import YoutubeIcon2 from './YoutubeIcon2.svg?react';
+import FacebookIcon2 from './FacebookIcon2.svg?react';
+import InstagramIcon2 from './InstagramIcon2.svg?react';
+import GoldEditIcon from './GoldEditIcon.svg?react';
+import LineLoginIcon from './lineLoginIcon.svg';
+import LoginLeftSideImage from './LoginLeftSideImage.svg?react';
+
 export {
   // common component
   PlusIcon,
@@ -327,6 +331,7 @@ export {
   OrderTrack2Icon,
   PinnedIcon,
   DialogCloseIcon,
+  GoldEditIcon,
   //Scheme Pages
   SchemeLandingImages,
   GoldenPlanImages,
@@ -444,4 +449,6 @@ export {
   TotalBranchIcon,
   ActiveIcon,
   InActiveIcon,
+  LineLoginIcon,
+  LoginLeftSideImage
 };

@@ -49,6 +49,16 @@ const KYCDetails = ({ edit, type }: Props) => {
     );
     return match ? match.value : '';
   };
+
+  const mapDocNameToLabel = (val: any) => {
+    if (val == null || val === '') return '-';
+    const v = String(val).trim();
+
+    const match = docNames.find(
+      (opt: any) => String(opt.value) === v || String(opt.label) === v
+    );
+    return match ? match.label : v;
+  };
   const defaultRow = [{ docName: '', docNo: '', file: null, document_url: '' }];
 
   const handleAddRow = () => {
@@ -239,7 +249,7 @@ const KYCDetails = ({ edit, type }: Props) => {
             >
               {isReadOnly ? (
                 <Box sx={{ fontSize: 14, color: theme.Colors.grayPrimary }}>
-                  {row.docName || '-'}
+                  {mapDocNameToLabel(row.docName)}
                 </Box>
               ) : (
                 <MUHSelectBoxComponent

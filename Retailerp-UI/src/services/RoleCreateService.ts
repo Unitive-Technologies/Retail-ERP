@@ -12,6 +12,18 @@ export type CreateRolePayload = {
   }[];
 };
 
+export type UpdateRolePermissionPayload = {
+  role_name: string;
+  department_id: number;
+  permissions: Array<{
+    id?: number;
+    module_id: number;
+    access_level_id: number;
+    role_name?: string;
+    department_id?: number;
+  }>;
+};
+
 export const RoleCreateService = {
   // CREATE ROLE WITH PERMISSIONS
   create: async (payload: CreateRolePayload) => {
@@ -58,6 +70,16 @@ export const RoleCreateService = {
     const options = await apiOptions({
       url: `${Config.BASE_URL}${SERVICE_URL.ROLE_CREATE}/${id}`,
       method: 'delete',
+    });
+    return apiRequest(options);
+  },
+
+  // UPDATE ROLE PERMISSIONS (Mixed create + update)
+  updateRolePermissions: async (payload: UpdateRolePermissionPayload) => {
+    const options = await apiOptions({
+      url: `${Config.BASE_URL}${SERVICE_URL.ROLE_CREATE}`,
+      method: 'put',
+      data: payload,
     });
     return apiRequest(options);
   },

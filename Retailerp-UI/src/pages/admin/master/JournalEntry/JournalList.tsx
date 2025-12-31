@@ -7,8 +7,24 @@ import CommonTableFilter from '@components/CommonTableFilter';
 import MUHDateRangePicker from '@components/MUHDateRangePicker/MUHDateRangePicker';
 import Grid from '@mui/material/Grid2';
 import React from 'react';
-import { StatusList } from '../employee/IncentiveTableFilter';
-
+const StatusList = [
+  {
+    value: 1,
+    label: 'Update pending',
+  },
+  {
+    value: 2,
+    label: 'Under Maintenance',
+  },
+  {
+    value: 3,
+    label: 'In Use',
+  },
+  {
+    value: 4,
+    label: 'Retired',
+  },
+];
 type Props = {
   selectItems: any[];
   handleSelectValue: (val: any) => void;

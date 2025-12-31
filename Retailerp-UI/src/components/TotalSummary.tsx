@@ -90,12 +90,12 @@ const TotalSummary = ({
             }}
           >
             <Typography
-              sx={{ fontSize: '14px', fontWeight: 600, color: '#333', mb: 1 }}
+              style={{ fontSize: '16px', fontWeight: 400, color: '#333',marginBottom: '10px' }}
             >
               In Words
             </Typography>
             <Typography
-              sx={{ fontSize: '14px', color: '#333', fontWeight: 500 }}
+              style={{ fontSize: '18px', color: '#333', fontWeight: 600 }}
             >
               {numberToWords(Math.round(totals.totalAmount))}
             </Typography>
@@ -156,7 +156,7 @@ const TotalSummary = ({
               <Typography
                 sx={{ fontSize: '14px', fontWeight: 500, color: '#000000' }}
               >
-                Sub Total
+                Sub Totals
               </Typography>
               <Box
                 sx={{
@@ -188,7 +188,7 @@ const TotalSummary = ({
               <Typography
                 sx={{ fontSize: '14px', fontWeight: 500, color: '#000000' }}
               >
-                {`${vendorStateId == 1 ? 'SGST' : 'IGST'}`}
+                {`${vendorStateId == 2 ? 'SGST' : 'IGST'}`}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Box
@@ -258,7 +258,7 @@ const TotalSummary = ({
               </Box>
             </Box>
             {/* CGST */}
-            {vendorStateId == 1 ? (
+            {vendorStateId == 2 ? (
               <Box
                 sx={{
                   display: 'flex',

@@ -81,7 +81,7 @@ export const handlePdfClick = ({
           fontSize: 8,
         },
         headStyles: {
-          fillColor: "#D7B95F",
+          fillColor: "#BB4E65",
           fontSize: 8,
         },
         margin: { top: addressY + 15, left: 10, right: 10, bottom: 10 }, // Adjust top margin based on address height
@@ -101,7 +101,7 @@ export const handlePdfClick = ({
           fontSize: 8, // Adjust font size to fit more content on one page
         },
         headStyles: {
-          fillColor: "#D7B95F",
+          fillColor: "#BB4E65",
           fontSize: 8,
         },
         // columnStyles: {

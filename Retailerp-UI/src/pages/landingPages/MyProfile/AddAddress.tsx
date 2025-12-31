@@ -7,30 +7,241 @@ import {
 } from '@mui/material';
 import Grid from '@mui/material/Grid2';
 import { DualActionButton, TextInput } from '@components/index';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import MUHSelectBoxComponent from '@components/MUHSelectBoxComponent';
-import { CountryList, DistrictList, StateList } from '@constants/DummyData';
+import { OrderService } from '@services/OrderService';
+import { DropDownServiceAll } from '@services/DropDownServiceAll';
 
 interface AddAddressProps {
   onCancel: () => void;
+  editAddressData?: any;
+  onAddressUpdated?: () => void;
 }
 
-const AddAddress = ({ onCancel }: AddAddressProps) => {
+const AddAddress = ({
+  onCancel,
+  editAddressData,
+  onAddressUpdated,
+}: AddAddressProps) => {
   const theme = useTheme();
+  const isEditMode = !!editAddressData;
+
+  const [countries, setCountries] = useState<any[]>([]);
+  const [states, setStates] = useState<any[]>([]);
+  const [districts, setDistricts] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
-    name: 'Charan',
-    mobile: '9944085895',
-    address: '31/11, Anna nagar, 1st cross street',
-    Country: 'India',
-    State: 'Tamil Nadu',
-    District: 'Chennai',
-    PinCode: '600040',
+    name: '',
+    mobile: '',
+    address: '',
+    Country: '',
+    State: '',
+    District: '',
+    PinCode: '',
     isDefault: false,
   });
 
-  const handleSave = () => {
-    console.log('Saved Data:', formData);
+  // Pre-fill form data when in edit mode
+  useEffect(() => {
+    if (editAddressData) {
+      console.log('Setting form data from editAddressData:', editAddressData);
+      setFormData({
+        name: editAddressData.name || '',
+        mobile: editAddressData.mobile_number || '',
+        address: editAddressData.address_line || '',
+        Country: editAddressData.country_id || '',
+        State: editAddressData.state_id || '',
+        District: editAddressData.district_id || '',
+        PinCode: editAddressData.pin_code || '',
+        isDefault: editAddressData.is_default || false,
+      });
+    }
+  }, [editAddressData]);
+
+  const handleAddAddress = async () => {
+    if (
+      !formData.name ||
+      !formData.mobile ||
+      !formData.address ||
+      !formData.Country ||
+      !formData.State ||
+      !formData.District ||
+      !formData.PinCode
+    ) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      const addressData = {
+        addresses: [
+          {
+            customer_id: 1,
+            name: formData.name,
+            mobile_number: formData.mobile,
+            address_line: formData.address,
+            country_id: formData.Country || 1,
+            state_id: formData.State || 1,
+            district_id: formData.District || 1,
+            pin_code: formData.PinCode,
+            is_default: formData.isDefault,
+          },
+        ],
+      };
+
+      const response = await OrderService.createCustomerAddress(addressData);
+
+      if (response && 'data' in response && response.data?.statusCode < 400) {
+        onAddressUpdated?.();
+        onCancel();
+      } else {
+        alert('Failed to create address. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error creating address:', error);
+    }
+  };
+
+  const handleUpdateAddress = async () => {
+    if (
+      !formData.name ||
+      !formData.mobile ||
+      !formData.address ||
+      !formData.Country ||
+      !formData.State ||
+      !formData.District ||
+      !formData.PinCode
+    ) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      const addressData = {
+        addresses: [
+          {
+            id: editAddressData?.id,
+            customer_id: 1,
+            name: formData.name,
+            mobile_number: formData.mobile,
+            address_line: formData.address,
+            country_id: formData.Country || 1,
+            state_id: formData.State || 1,
+            district_id: formData.District || 1,
+            pin_code: formData.PinCode,
+            is_default: formData.isDefault,
+          },
+        ],
+      };
+
+      const response = await OrderService.updateCustomerAddress(addressData);
+
+      if (response && 'data' in response && response.data?.statusCode < 400) {
+        onAddressUpdated?.();
+        onCancel();
+      }
+    } catch (error) {
+      console.error('Error updating address:', error);
+    }
+  };
+
+  useEffect(() => {
+    const fetchDropdownData = async () => {
+      try {
+        const countriesResponse: any = await DropDownServiceAll.getAllCountry();
+        if (countriesResponse?.data?.data?.countries) {
+          setCountries(countriesResponse.data.data.countries);
+        }
+
+        const districtsResponse: any =
+          await DropDownServiceAll.getAllDistricts();
+        if (districtsResponse?.data?.data?.districts) {
+          setDistricts(districtsResponse.data.data.districts);
+        }
+      } catch (error) {
+        console.error('Error fetching dropdown data:', error);
+      }
+    };
+
+    fetchDropdownData();
+  }, []);
+
+  // Fetch states when country changes
+  useEffect(() => {
+    const fetchStates = async () => {
+      if (formData.Country) {
+        try {
+          const statesResponse: any = await DropDownServiceAll.getAllStates({
+            country_id: formData.Country,
+          });
+          if (statesResponse?.data?.data?.states) {
+            setStates(statesResponse.data.data.states);
+          }
+        } catch (error) {
+          console.error('Error fetching states:', error);
+        }
+      } else {
+        setStates([]);
+      }
+    };
+
+    fetchStates();
+  }, [formData.Country]);
+
+  // Fetch districts when state changes
+  useEffect(() => {
+    const fetchDistricts = async () => {
+      if (formData.State) {
+        try {
+          const districtsResponse: any =
+            await DropDownServiceAll.getAllDistricts({
+              state_id: formData.State,
+            });
+          console.log(
+            districtsResponse?.data?.data?.districts,
+            'districtsResponse?.data?.data?.districts'
+          );
+
+          if (districtsResponse?.data?.data?.districts) {
+            setDistricts(districtsResponse.data.data.districts);
+          }
+        } catch (error) {
+          console.error('Error fetching districts:', error);
+        }
+      } else {
+        setDistricts([]);
+      }
+    };
+
+    fetchDistricts();
+  }, [formData.State]);
+
+  // Since API returns filtered results, we don't need client-side filtering
+  const filteredStates = states;
+  const filteredDistricts = districts;
+  const currentDistrict = filteredDistricts.find(
+    (d) => String(d.id) === String(formData.District)
+  );
+
+  // Handle country change
+  const handleCountryChange = (e: any) => {
+    const countryId = e.target.value;
+    setFormData({
+      ...formData,
+      Country: countryId,
+      State: '',
+      District: '',
+    });
+  };
+
+  // Handle state change
+  const handleStateChange = (e: any) => {
+    const stateId = e.target.value;
+    setFormData({
+      ...formData,
+      State: stateId,
+      District: '',
+    });
   };
 
   return (
@@ -175,10 +386,11 @@ const AddAddress = ({ onCancel }: AddAddressProps) => {
             isCheckbox={false}
             value={formData.Country}
             placeholderText="Select Country"
-            onChange={(e) =>
-              setFormData({ ...formData, Country: e.target.value })
-            }
-            selectItems={CountryList}
+            onChange={handleCountryChange}
+            selectItems={countries.map((country: any) => ({
+              value: country.id,
+              label: country.country_name,
+            }))}
             selectWidth={450}
             selectBoxStyle={{
               fontFamily: 'Roboto Slab',
@@ -205,11 +417,13 @@ const AddAddress = ({ onCancel }: AddAddressProps) => {
             isCheckbox={false}
             value={formData.State}
             placeholderText="Select State"
-            onChange={(e) =>
-              setFormData({ ...formData, State: e.target.value })
-            }
-            selectItems={StateList}
+            onChange={handleStateChange}
+            selectItems={filteredStates.map((state: any) => ({
+              value: state.id,
+              label: state.state_name,
+            }))}
             selectWidth={450}
+            disabled={!formData.Country}
           />
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
@@ -225,14 +439,24 @@ const AddAddress = ({ onCancel }: AddAddressProps) => {
             District
           </Typography>
           <MUHSelectBoxComponent
+            key={`district-${formData.District}-${districts.length}`}
             isCheckbox={false}
-            value={formData.District}
             placeholderText="Select District"
             onChange={(e) =>
               setFormData({ ...formData, District: e.target.value })
             }
-            selectItems={DistrictList}
+            selectItems={filteredDistricts.map((district: any) => ({
+              value: String(district.id),
+              label: district.district_name,
+            }))}
             selectWidth={450}
+            disabled={!formData.State}
+            value={String(formData.District || '')}
+            helperText={
+              isEditMode && formData.District && !currentDistrict
+                ? 'District not found in list'
+                : ''
+            }
           />
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
@@ -269,9 +493,11 @@ const AddAddress = ({ onCancel }: AddAddressProps) => {
         }}
       >
         <DualActionButton
-          leftButtonText="Save"
+          leftButtonText={isEditMode ? 'Update' : 'Save'}
           rightButtonText="Back"
-          onLeftButtonClick={handleSave}
+          onLeftButtonClick={
+            isEditMode ? handleUpdateAddress : handleAddAddress
+          }
           onRightButtonClick={onCancel}
           leftButtonStyle={{
             background: `linear-gradient(101.51deg, ${theme.Colors.primaryDarkStart} 0.31%, ${theme.Colors.primaryDarkEnd} 99.69%)`,

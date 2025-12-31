@@ -6,36 +6,82 @@ import FormAction from '@components/ProjectCommon/FormAction';
 import { useEdit } from '@hooks/useEdit';
 import { Typography, useTheme } from '@mui/material';
 import Grid from '@mui/system/Grid';
-
 import { handleValidatedChange } from '@utils/form-util';
+import { HolidaysService, HolidayData } from '@services/HRManagementServices';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import dayjs, { Dayjs } from 'dayjs';
+import toast from 'react-hot-toast';
 
 const CreateHoliday = () => {
   const theme = useTheme();
-  const InitialValues: any = {
-    leave_name: '',
-    leave_date: null,
-    description: '',
+  const navigateTo = useNavigate();
+  const location = useLocation();
+  
+  const holidayData = location.state?.holidayData;
+  const isEdit = location.state?.isEdit;
+  
+  const InitialValues: HolidayData = {
+    holiday_name: holidayData?.holiday_name || '',
+    holiday_date: holidayData?.holiday_date ? dayjs(holidayData.holiday_date) : null,
+    description: holidayData?.description || '',
   };
+
   const edit = useEdit(InitialValues);
-  const handleCreate = () => {};
-  const handleCancel = () => {};
+
+  useEffect(() => {
+    if (isEdit && holidayData) {
+      edit.update({
+        holiday_name: holidayData.holiday_name,
+        holiday_date: holidayData.holiday_date ? dayjs(holidayData.holiday_date) : null,
+        description: holidayData.description,
+      });
+    }
+  }, []);
+
+  const handleCreate = async () => {
+    try {
+      const payload = {
+        holiday_name: edit.getValue('holiday_name'),
+        holiday_date: edit.getValue('holiday_date')?.toISOString() || null,
+        description: edit.getValue('description'),
+      };
+
+      const response: any = isEdit
+        ? await HolidaysService.updateHoliday(holidayData.id, payload)
+        : await HolidaysService.create({
+            data: payload,
+            successMessage: 'Holiday created successfully',
+            failureMessage: 'Failed to create holiday',
+          });
+
+      if (response?.data?.statusCode === 201 || response?.data?.statusCode === 200) {
+        navigateTo('/admin/hr/holidays');
+      }
+    } catch (err: any) {
+      console.error(err);
+    }
+  };
+
+  const handleCancel = () => {
+    navigateTo('/admin/hr/holidays');
+  };
 
   return (
     <>
       <Grid
         container
-        flexDirection={'column'}
+        flexDirection="column"
         sx={{
           flex: 1,
           minHeight: 0,
           p: 2,
           borderRadius: '4px',
-
           backgroundColor: theme.Colors.whitePrimary,
         }}
       >
         <PageHeader
-          title={'CREATE HOLIDAY'}
+          title="CREATE HOLIDAY"
           titleStyle={{ color: theme.Colors.black }}
           navigateUrl="/admin/hr/holidays"
           showCreateBtn={false}
@@ -48,24 +94,30 @@ const CreateHoliday = () => {
           <Grid size={{ xs: 12, md: 6 }} sx={styles.leftItem}>
             <TextInput
               inputLabel="Leave Name"
-              value={edit.getValue('leave_name')}
+              value={edit.getValue('holiday_name')}
               onChange={(e: any) =>
-                handleValidatedChange(e, edit, 'leave_name', 'string')
+                handleValidatedChange(e, edit, 'holiday_name', 'string')
               }
-              //   isError={hasError(fieldError.qr_id)}
               {...commonTextInputProps}
             />
           </Grid>
+
           <Grid size={{ xs: 12, md: 6 }} sx={styles.leftItem}>
             <MUHDatePickerComponent
               required
               labelText="Leave Date"
-              value={edit.getValue('leave_date')}
-              handleChange={(newDate: any) =>
-                edit.update({ leave_date: newDate })
-              }
-              // isError={hasError(fieldErrors.joining_date)}
-              handleClear={() => edit.update({ leave_date: null })}
+              value={edit.getValue('holiday_date')}
+              useNewIcon={true}
+              minDate={dayjs()}
+              handleChange={(newDate: Dayjs | null) => {
+                if (newDate && newDate.isBefore(dayjs(), 'day')) {
+                  toast.error('Past dates are not allowed.');
+                  edit.update({ holiday_date: null });
+                  return;
+                }
+                edit.update({ holiday_date: newDate });
+              }}
+              handleClear={() => edit.update({ holiday_date: null })}
             />
           </Grid>
 
@@ -93,13 +145,16 @@ const CreateHoliday = () => {
                 fontFamily="Roboto Slab"
                 borderRadius={2}
                 value={edit.getValue('description')}
-                //   onChange={handleInstallmentChange}
+                onChange={(e: any) =>
+                  handleValidatedChange(e, edit, 'description', 'string')
+                }
                 isError={false}
               />
             </Grid>
           </Grid>
         </Grid>
       </Grid>
+
       <FormAction
         firstBtntxt="Save"
         secondBtntx="Cancel"

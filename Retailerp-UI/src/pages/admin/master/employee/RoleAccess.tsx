@@ -1,7 +1,7 @@
 import Grid from '@mui/material/Grid2';
 import { ConfirmModal, MUHTable } from '@components/index';
 import { GridColDef } from '@mui/x-data-grid';
-import { CONFIRM_MODAL } from '@constants/Constance';
+import { CONFIRM_MODAL, HTTP_STATUSES } from '@constants/Constance';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { RowEditIcon, RowViewIcon } from '@assets/Images';
@@ -11,13 +11,23 @@ import { useEdit } from '@hooks/useEdit';
 import { Box } from '@mui/material';
 import { contentLayout } from '@components/CommonStyles';
 import { API_SERVICES } from '@services/index';
+import { EmpDepartmentService } from '@services/EmpDepartmentService';
+import { EmployeeRoleDropdownService } from '@services/EmployeeRoleDropdownService';
+import RoleAccessTableFilter from './RoleAccessTableFilter';
+
+type DropdownOption = {
+  label: string;
+  value: string | number;
+};
 
 const RoleAccess = () => {
   const navigateTo = useNavigate();
   const [loading, setLoading] = useState(true);
   const [confirmModalOpen, setConfirmModalOpen] = useState({ open: false });
   const [branchData, setBranchData] = useState<object[]>([]);
-  const [hiddenColumns] = useState<any[]>([]);
+  const [hiddenColumns, setHiddenColumns] = useState<any[]>([]);
+  const [departmentOptions, setDepartmentOptions] = useState<DropdownOption[]>([]);
+  const [roleOptions, setRoleOptions] = useState<DropdownOption[]>([]);
 
   const initialValues = {
     status: 0,
@@ -33,11 +43,10 @@ const RoleAccess = () => {
     {
       field: 'id',
       headerName: 'S.No',
-      flex: 0.3,
-      align: 'center',
-      headerAlign: 'center',
+      flex: 0.39,
       sortable: false,
       disableColumnMenu: true,
+      headerAlign: 'left',
     },
     {
       field: 'department',
@@ -140,6 +149,16 @@ const RoleAccess = () => {
     ];
   };
 
+  const handleSelectColumn = (item: any) => {
+    const header = item?.headerName ?? item?.value ?? item;
+    setHiddenColumns((prev: any[]) => {
+      if (prev?.includes(header)) {
+        return prev.filter((h) => h !== header);
+      }
+      return [...prev, header];
+    });
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -151,8 +170,9 @@ const RoleAccess = () => {
       if (edit?.edits?.search && edit.edits.search.trim()) {
         params.search = edit.edits.search.trim();
       }
-      if (edit?.edits?.role && edit.edits.role.trim()) {
-        params.role = edit.edits.role.trim();
+      if (edit?.edits?.role) {
+        const roleValue = edit.edits.role;
+        params.role = typeof roleValue === 'object' ? roleValue?.value : roleValue;
       }
 
       const res: any = await API_SERVICES.RoleService.getListDetails(params);
@@ -185,6 +205,69 @@ const RoleAccess = () => {
   }, []);
 
   useEffect(() => {
+    const loadDepartments = async () => {
+      try {
+        const res: any = await EmpDepartmentService.getDepartmentsDropdown();
+        const data = res?.data ?? res;
+        const departmentsArr = Array.isArray(data?.data)
+          ? data.data
+          : data?.data?.departments || [];
+
+        const options = departmentsArr.map((d: any) => ({
+          label: d.name || d.department_name,
+          value: d.id ?? d.department_id,
+        }));
+
+        setDepartmentOptions(options);
+      } catch (err) {
+        setDepartmentOptions([]);
+      }
+    };
+
+    loadDepartments();
+  }, []);
+
+  useEffect(() => {
+    const departmentId = edit?.getValue('department_id');
+    const deptId = departmentId ? Number(departmentId) : null;
+
+    if (!deptId) {
+      setRoleOptions([]);
+      if (edit?.getValue('role')) {
+        edit.update({ role: null });
+      }
+      return;
+    }
+
+    const fetchRoles = async (deptId: number) => {
+      try {
+        const res: any = await EmployeeRoleDropdownService.getDropdown({
+          department_id: deptId,
+        });
+        if (
+          res?.status < HTTP_STATUSES.BAD_REQUEST &&
+          Array.isArray(res.data.data?.roles)
+        ) {
+          const options: DropdownOption[] = res.data.data.roles.map(
+            (role: any) => ({
+              label: role.name,
+              value: Number(role.id),
+            })
+          );
+          setRoleOptions(options);
+        } else {
+          setRoleOptions([]);
+        }
+      } catch (err) {
+        console.error('Error fetching roles:', err);
+        setRoleOptions([]);
+      }
+    };
+
+    fetchRoles(deptId);
+  }, [edit?.getValue('department_id')]);
+
+  useEffect(() => {
     fetchData();
   }, [edit.edits]);
 
@@ -198,6 +281,15 @@ const RoleAccess = () => {
           navigateUrl="/admin/master/employee/role"
         />
         <Grid container sx={contentLayout}>
+          <RoleAccessTableFilter
+            selectItems={columns}
+            selectedValue={hiddenColumns}
+            handleSelectValue={handleSelectColumn}
+            handleFilterClear={() => edit.update({ department_id: '', search: '', role: null })}
+            edit={edit}
+            departmentOptions={departmentOptions}
+            roleOptions={roleOptions}
+          />
           <MUHTable
             columns={columns.filter(
               (column) => !hiddenColumns.includes(column.headerName)

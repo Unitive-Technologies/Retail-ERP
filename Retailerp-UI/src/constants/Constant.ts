@@ -11,6 +11,9 @@ const SERVICE_URL = {
   SUBCATEGORY: 'api/v1/subcategory',
   VARIANT: 'api/v1/variant',
   LIST_VARIANTS: 'api/v1/variants',
+  USER_ITEMS: 'api/v1/user-items',
+  CUSTOMER_ADDRESS: 'api/v1/customer-addresses',
+ORDER: 'api/v1/orders',
 
   VENDOR_DETAILS: 'api/v1/vendors',
   VENDOR_DETAILS_CODE: 'api/v1/vendors/code',
@@ -57,6 +60,8 @@ const SERVICE_URL = {
   EMPLOYEE_ROLE_ADD: 'api/v1/roles',
   EMPLOYEE_DEP_ADD: 'api/v1/employee-departments',
   ROLE_CREATE: 'api/v1/role-permissions',
+  EMPLOYEE_PERMISSIONS: 'api/v1/employee-permissions',
+  EMPLOYEE_ROLE_DROPDOWN: 'api/v1/roles/dropdown',
   //State
   STATE_DROPDOWN: 'api/v1/state/dropdown',
   // Country
@@ -73,6 +78,15 @@ const SERVICE_URL = {
   // Customer
   CUSTOMER_DETAILS: 'api/v1/customers',
   CUSTOMER_DETAILS_CODE: 'api/v1/customers/code',
+
+  // Orders
+  ORDERS: 'api/v1/orders',
+
+  // Holidays
+  HOLIDAYS: 'api/v1/holidays',
+
+  // Purchase Orders
+  PURCHASE_ORDERS: 'api/v1/purchase-orders',
 };
 
 export { SERVICE_URL };

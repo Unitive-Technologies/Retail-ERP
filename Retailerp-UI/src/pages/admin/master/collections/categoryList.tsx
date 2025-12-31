@@ -14,6 +14,12 @@ import { CONFIRM_MODAL, HTTP_STATUSES } from '@constants/Constance';
 import { useNavigate } from 'react-router-dom';
 import { API_SERVICES } from '@services/index';
 import CategoryTableFilter from './categoryTableFilter';
+import MenuDropDown from '@components/MUHMenuDropDown';
+import {
+  CATEGORY_LIST_COLUMN_MAPPING,
+  CATEGORY_LIST_PDF_HEADERS,
+  PDF_TITLE,
+} from '@constants/PdfConstants';
 
 const CategoryList = () => {
   const navigateTo = useNavigate();
@@ -23,6 +29,7 @@ const CategoryList = () => {
   const [loading, setLoading] = useState(true);
 
   const [confirmModalOpen, setConfirmModalOpen] = useState({ open: false });
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const initialValues = {
     search: '',
     material_type: '',
@@ -144,7 +151,7 @@ const CategoryList = () => {
         material_type_id: materialTypeValue || '',
       };
 
-      const response = await API_SERVICES.CategoryService.getAll(params);
+      const response: any = await API_SERVICES.CategoryService.getAll(params);
 
       if (response?.status < HTTP_STATUSES.BAD_REQUEST && response?.data) {
         const transformedData = response.data.data?.categories
@@ -160,10 +167,6 @@ const CategoryList = () => {
             ...item,
             s_no: index + 1,
           }));
-
-        setCategoryData(transformedData);
-
-        setCategoryData(transformedData);
 
         setCategoryData(transformedData);
       } else {
@@ -192,6 +195,27 @@ const CategoryList = () => {
     };
   }, []);
 
+  // PDF / Print configuration (similar to Branch/Vendor)
+  const columnMapping = CATEGORY_LIST_COLUMN_MAPPING;
+  const pdfHeaders = CATEGORY_LIST_PDF_HEADERS;
+  const fileName = PDF_TITLE.categoryList;
+
+  const pdfData: any = categoryData?.length
+    ? categoryData.map((row: any, index: number) => ({
+        s_no: index + 1,
+        material_type: row?.material_type || '-',
+        category_name: row?.category_name || '-',
+      }))
+    : [];
+
+  const handleOpenDownloadMenu = (e: any) => {
+    setMenuAnchorEl(e.currentTarget as HTMLElement);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuAnchorEl(null);
+  };
+
   return (
     <>
       <Grid container width={'100%'} mt={1.2}>
@@ -201,15 +225,50 @@ const CategoryList = () => {
           btnName="Create Category"
           navigateUrl={`/admin/master/collections/category/form?type=create`}
           navigateState={{ rowData: {}, type: CONFIRM_MODAL.create }}
+          showDownloadBtn={true}
+          onDownloadClick={handleOpenDownloadMenu}
+          onPrintClick={() => window.print()}
         />
-        <Grid container sx={contentLayout} mt={0}>
-          <CategoryTableFilter
-            selectItems={columns}
-            handleSelectValue={handleSelectValue}
-            selectedValue={hiddenColumns}
-            handleFilterClear={handleFilterClear}
-            edit={edit}
-          />
+        <Grid container sx={contentLayout} className="print-area" mt={0}>
+          {/* Print heading */}
+          <div
+            className="print-only"
+            style={{ width: '100%', marginBottom: 12 }}
+          >
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 600,
+                color: '#000',
+                paddingBottom: 8,
+                marginBottom: 8,
+              }}
+            >
+              Category List ({categoryData.length})
+            </div>
+          </div>
+
+          {/* Filters & download - hide in print */}
+          <div className="print-hide" style={{ width: '100%' }}>
+            <MenuDropDown
+              anchorEl={menuAnchorEl}
+              handleCloseMenu={handleCloseMenu}
+              hiddenCols={hiddenColumns}
+              columnMapping={columnMapping}
+              pdfData={pdfData}
+              pdfHeaders={pdfHeaders}
+              fileName={fileName}
+              address={''}
+            />
+            <CategoryTableFilter
+              selectItems={columns}
+              handleSelectValue={handleSelectValue}
+              selectedValue={hiddenColumns}
+              handleFilterClear={handleFilterClear}
+              edit={edit}
+            />
+          </div>
+
           <MUHTable
             columns={columns.filter(
               (column) => !hiddenColumns.includes(column.headerName)

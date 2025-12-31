@@ -356,6 +356,12 @@ const CreateGrn = () => {
       return;
     }
 
+    // Validate subTotal is greater than 0
+    if (totals.subTotal <= 0) {
+      toast.error('Sub Total must be greater than 0. Please add items with valid amounts.');
+      return;
+    }
+
     // Transform data to API format
     const body = transformToApiFormat(validItems);
 
@@ -991,9 +997,15 @@ const CreateGrn = () => {
                 labelText="GRN Date"
                 value={edit.getValue('grn_date')}
                 useNewIcon={true}
-                handleChange={(newDate: any) =>
-                  edit.update({ grn_date: newDate })
-                }
+                minDate={dayjs()}
+                handleChange={(newDate: any) => {
+                  if (newDate && dayjs(newDate).isBefore(dayjs(), 'day')) {
+                    toast.error('Past dates are not allowed.');
+                    edit.update({ grn_date: null });
+                    return;
+                  }
+                  edit.update({ grn_date: newDate });
+                }}
                 handleClear={() => edit.update({ grn_date: null })}
               />
             </Grid>

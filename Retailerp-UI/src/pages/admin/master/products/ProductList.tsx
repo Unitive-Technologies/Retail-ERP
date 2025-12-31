@@ -2,7 +2,7 @@ import { contentLayout } from '@components/CommonStyles';
 import Grid from '@mui/material/Grid2';
 import ProductTableFilter from './ProductTableFilter';
 import { ConfirmModal } from '@components/index';
-import { CONFIRM_MODAL, HTTP_STATUSES } from '@constants/Constance';
+import { CONFIRM_MODAL, HTTP_STATUSES, VARIATION_TYPE } from '@constants/Constance';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { DeleteOutlinedIcon, RowEditIcon, RowViewIcon } from '@assets/Images';
@@ -12,6 +12,12 @@ import { useEdit } from '@hooks/useEdit';
 import { API_SERVICES } from '@services/index';
 import CollapsibleProductTable from './CollapsibleProductTable';
 import { useDebounce } from '@hooks/useDebounce';
+import MenuDropDown from '@components/MUHMenuDropDown';
+import {
+  PDF_TITLE,
+  PRODUCT_LIST_COLUMN_MAPPING,
+  PRODUCT_LIST_PDF_HEADERS,
+} from '@constants/PdfConstants';
 
 const ProductList = () => {
   const navigateTo = useNavigate();
@@ -23,6 +29,7 @@ const ProductList = () => {
   const [pageLimit, setPageLimit] = useState(10);
   const [hiddenColumns, setHiddenColumns] = useState<any[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<any[]>([]);
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
 
   const initialValues = {
     material_type_id: '',
@@ -214,6 +221,41 @@ const ProductList = () => {
     setPageLimit(limit);
   };
 
+  // PDF / Print config
+  const columnMapping = PRODUCT_LIST_COLUMN_MAPPING;
+  const pdfHeaders = PRODUCT_LIST_PDF_HEADERS;
+  const fileName = PDF_TITLE.productList;
+
+  const pdfData: any = productData?.length
+    ? productData.map((row: any, index: number) => {
+        const variationCount = row?.itemDetails?.length || row?.variation_count;
+        const variationText =
+          variationCount && row?.variation_type === VARIATION_TYPE.WITH
+            ? variationCount.toString()
+            : 'NA';
+
+        return {
+          s_no: row?.s_no ?? index + 1,
+          sku_id: row?.sku_id || '-',
+          hsn_code: row?.hsn_code || '-',
+          product_name: row?.product_name || '-',
+          purity: row?.purity || '-',
+          variation: variationText,
+          total_quantity: row?.total_quantity ?? '',
+          total_weight: row?.total_weight ?? '',
+          image_urls: row?.image_urls || [],
+        };
+      })
+    : [];
+
+  const handleOpenDownloadMenu = (e: any) => {
+    setMenuAnchorEl(e.currentTarget as HTMLElement);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuAnchorEl(null);
+  };
+
   return (
     <>
       <PageHeader
@@ -221,30 +263,157 @@ const ProductList = () => {
         count={totalCount}
         btnName="Create Product"
         navigateUrl="/admin/master/product/form?type=create"
+        showDownloadBtn={true}
+        onDownloadClick={handleOpenDownloadMenu}
+        onPrintClick={() => window.print()}
       />
-      <Grid container sx={contentLayout}>
-        <ProductTableFilter
-          selectItems={columns.filter((i) => i.field !== 'expand')}
-          selectedValue={hiddenColumns}
-          handleSelectValue={handleSelectValue}
-          handleFilterClear={handleFilterClear}
-          edit={edit}
-        />
-        <CollapsibleProductTable
-          rows={productData}
-          isPagination={true}
-          totalCount={totalCount}
-          onPaginationChange={handlePaginationChange}
-          columns={columns.filter(
-            (col) => !hiddenColumns.includes(col.headerName)
-          )}
-          getRowActions={renderRowAction}
-          isLoading={loading}
-          onSelectedRowsChange={(selected) => {
-            setSelectedProductIds(selected.map((p: any) => p.id));
-          }}
-          selectedRowIds={selectedProductIds}
-        />
+      <Grid container sx={contentLayout} className="print-area">
+        {/* Print heading */}
+        <div className="print-only" style={{ width: '100%', marginBottom: 12 }}>
+          <div
+            style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: '#000',
+              paddingBottom: 8,
+              marginBottom: 8,
+            }}
+          >
+            Product List ({productData?.length})
+          </div>
+        </div>
+
+        {/* Simple print-only table to avoid horizontal scroll cut-off */}
+        <div className="print-only" style={{ width: '100%', marginBottom: 16 }}>
+          <table
+            style={{
+              width: '100%',
+              tableLayout: 'fixed',
+              fontSize: 11,
+            }}
+          >
+            <thead>
+              <tr>
+                {PRODUCT_LIST_PDF_HEADERS.map((col) => (
+                  <th
+                    key={col.key}
+                    style={{
+                      padding: '8px 4px',
+                      backgroundColor: '#f3e1e5',
+                      textAlign: 'left',
+                      fontWeight: 600,
+                      borderBottom: '1px solid #e0e0e0',
+                    }}
+                  >
+                    {col.header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {pdfData.map((row: any, index: number) => (
+                <tr key={index}>
+                  {PRODUCT_LIST_PDF_HEADERS.map((col) => {
+                    if (col.key === 'product_name') {
+                      const name = row.product_name ?? '';
+                      const imageUrl =
+                        Array.isArray(row.image_urls) && row.image_urls.length
+                          ? row.image_urls[0]
+                          : null;
+                      return (
+                        <td
+                          key={col.key}
+                          style={{
+                            padding: '6px 4px',
+                            wordWrap: 'break-word',
+                            whiteSpace: 'normal',
+                            borderBottom: '1px solid #f0f0f0',
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                            }}
+                          >
+                            {imageUrl && (
+                              <img
+                                src={imageUrl}
+                                alt="product"
+                                style={{
+                                  width: 24,
+                                  height: 24,
+                                  borderRadius: '50%',
+                                  objectFit: 'cover',
+                                }}
+                              />
+                            )}
+                            <span>{name}</span>
+                          </div>
+                        </td>
+                      );
+                    }
+
+                    return (
+                      <td
+                        key={col.key}
+                        style={{
+                          padding: '6px 4px',
+                          wordWrap: 'break-word',
+                          whiteSpace: 'normal',
+                          borderBottom: '1px solid #f0f0f0',
+                        }}
+                      >
+                        {row[col.key] ?? ''}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Filters & download - hide in print */}
+        <div className="print-hide" style={{ width: '100%' }}>
+          <MenuDropDown
+            anchorEl={menuAnchorEl}
+            handleCloseMenu={handleCloseMenu}
+            hiddenCols={hiddenColumns}
+            columnMapping={columnMapping}
+            pdfData={pdfData}
+            pdfHeaders={pdfHeaders}
+            fileName={fileName}
+            address={''}
+          />
+          <ProductTableFilter
+            selectItems={columns.filter((i) => i.field !== 'expand')}
+            selectedValue={hiddenColumns}
+            handleSelectValue={handleSelectValue}
+            handleFilterClear={handleFilterClear}
+            edit={edit}
+          />
+        </div>
+
+        {/* Main interactive table - hidden in print */}
+        <div className="print-hide" style={{ width: '100%' }}>
+          <CollapsibleProductTable
+            rows={productData}
+            isPagination={true}
+            totalCount={totalCount}
+            onPaginationChange={handlePaginationChange}
+            columns={columns.filter(
+              (col) => !hiddenColumns.includes(col.headerName)
+            )}
+            getRowActions={renderRowAction}
+            isLoading={loading}
+            onSelectedRowsChange={(selected) => {
+              setSelectedProductIds(selected.map((p: any) => p.id));
+            }}
+            selectedRowIds={selectedProductIds}
+          />
+        </div>
         {confirmModalOpen.open && <ConfirmModal {...confirmModalOpen} />}
       </Grid>
     </>

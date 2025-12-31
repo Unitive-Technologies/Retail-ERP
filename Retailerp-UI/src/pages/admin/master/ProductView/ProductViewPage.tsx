@@ -113,7 +113,7 @@ const ProductViewPage: React.FC = () => {
   const [openDialog, setOpenDialog] = useState({ open: false });
   const [pincode, setPincode] = useState('606206');
   const [selectedVariation, setSelectedVariation] = useState(0);
-  const [variations, setVariations] = useState([]);
+  const [variations, setVariations] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchProduct = async (id: string) => {
@@ -163,9 +163,16 @@ const ProductViewPage: React.FC = () => {
           const productDetails = getProductDetailsFromData(tempProduct);
           setProduct({ ...tempProduct, product_details: productDetails });
 
-          const parsedVariations = respProduct?.product_variations
-            ? JSON.parse(respProduct.product_variations)
-            : [];
+          let parsedVariations = [];
+          try {
+            if (respProduct?.product_variations) {
+              const parsed = JSON.parse(respProduct.product_variations);
+              parsedVariations = Array.isArray(parsed) ? parsed : [];
+            }
+          } catch (error) {
+            console.error('Error parsing product variations:', error);
+            parsedVariations = [];
+          }
 
           if (!isChild) {
             setVariations(parsedVariations);

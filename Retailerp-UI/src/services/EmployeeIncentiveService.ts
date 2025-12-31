@@ -8,7 +8,7 @@ export type IncentiveData = {
   department_id: number;
   sales_target: number[];
   incentive_type: string;
-  incentive_value: string;
+  incentive_value: number ;
 };
 
 type IncentiveProp = {

@@ -200,26 +200,30 @@ const AutoSearchSelectWithLabel = React.memo(function AutoSearchSelectWithLabel(
                 paddingRight: '0px',
               },
           }}
-          componentsProps={{
+          slotProps={{
             paper: {
               sx: {
                 boxShadow: 'none',
                 border: `1px solid ${theme.Colors.grayLight}`,
                 overflowY: 'auto',
+                maxHeight: 280,
                 borderRadius: '8px',
                 background: theme.Colors.whitePrimary,
                 '& .MuiAutocomplete-listbox': {
                   padding: '8px',
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: `${menuItemSelectedColor} transparent`,
                 },
-                '& .MuiAutocomplete-listbox, & .MuiAutocomplete-listbox *': {
-                  scrollbarWidth: 'none',
-                  msOverflowStyle: 'none',
+                '& .MuiAutocomplete-listbox::-webkit-scrollbar': {
+                  width: '6px',
                 },
-                '& .MuiAutocomplete-listbox::-webkit-scrollbar, & .MuiAutocomplete-listbox *::-webkit-scrollbar':
-                  {
-                    width: '0px',
-                    height: '0px',
-                  },
+                '& .MuiAutocomplete-listbox::-webkit-scrollbar-track': {
+                  background: 'transparent',
+                },
+                '& .MuiAutocomplete-listbox::-webkit-scrollbar-thumb': {
+                  backgroundColor: menuItemSelectedColor,
+                  borderRadius: '4px',
+                },
                 '& .MuiAutocomplete-option': {
                   px: 2,
                   py: 0.7,
@@ -317,7 +321,7 @@ const AutoSearchSelectWithLabel = React.memo(function AutoSearchSelectWithLabel(
               placeholder={placeholder}
               inputProps={{
                 ...params.inputProps,
-                readOnly: isReadOnly || Boolean(value),
+                readOnly: isReadOnly,
               }}
               sx={{
                 '& .MuiInputBase-input': {

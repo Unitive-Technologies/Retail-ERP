@@ -6,6 +6,9 @@ import {
 import CommonTableFilter from '@components/CommonTableFilter';
 import { useTheme } from '@mui/material';
 import Grid from '@mui/material/Grid2';
+import { useEffect, useState } from 'react';
+import { API_SERVICES } from '@services/index';
+import { HTTP_STATUSES } from '@constants/Constance';
 
 type Props = {
   selectItems: any[];
@@ -28,24 +31,40 @@ const VendorTableFilter = ({
   onSearchChange,
 }: Props) => {
   const theme = useTheme();
+  const [materialTypeOptions, setMaterialTypeOptions] = useState<any[]>([]);
 
-  const dummyBranchList = [
-    { label: 'Chennai', value: 1 },
-    { label: 'Chennai', value: 2 },
-    { label: 'Salem', value: 3 },
-    { label: 'Chennai', value: 4 },
-    { label: 'Super Admin', value: 5 },
-  ];
+  useEffect(() => {
+    const fetchMaterialTypes = async () => {
+      try {
+        const response: any = await API_SERVICES.MaterialTypeService.getAll();
+        if (
+          response?.status < HTTP_STATUSES.BAD_REQUEST &&
+          response?.data?.data?.materialTypes
+        ) {
+          const options = response.data.data.materialTypes.map((m: any) => ({
+            value: m.id,
+            label: m.material_type,
+          }));
+          setMaterialTypeOptions(options);
+        }
+      } catch (error) {
+        console.error('Error fetching material types:', error);
+        setMaterialTypeOptions([]);
+      }
+    };
+
+    fetchMaterialTypes();
+  }, []);
 
   return (
     <Grid container sx={tableFilterContainerStyle}>
       <Grid size={1.6}>
         <AutoSearchSelectWithLabel
-          options={dummyBranchList} // ✅ Using dummy data
+          options={materialTypeOptions}
           iconStyle={{ color: theme.Colors.blackLightLow }}
-          placeholder="Branch"
+          placeholder="Material Type"
           value={edit?.getValue('materialType')}
-          onChange={(e, value) => {
+          onChange={(_e, value) => {
             edit.update({ materialType: value });
             onMaterialTypeChange && onMaterialTypeChange(value);
           }}

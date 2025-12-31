@@ -66,6 +66,7 @@ const ProductForm = () => {
     vendors: [],
     grns: [],
     materialTypes: [],
+    allMaterialTypes: [],
     categories: [],
     subcategories: [],
     branches: [],
@@ -655,11 +656,57 @@ const ProductForm = () => {
   };
 
   const handleVendorChange = async (_event: any, value: any) => {
-    edit.update({ vendor_id: value, grn_id: '', ref_no_id: '' });
+    edit.update({
+      vendor_id: value,
+      grn_id: '',
+      ref_no_id: '',
+      material_type_id: '',
+      category_id: '',
+      subcategory_id: '',
+    });
     setSelectedPurchaseRecord(null);
     setRefNoRecords([]);
     setRefNoOptions([]);
     await loadGrnDropdown(value);
+
+    // Fetch vendor details to get material
+    if (value?.value) {
+      try {
+        const vendorResponse: any = await API_SERVICES.VendorService.getAllById(
+          value.value
+        );
+        if (vendorResponse?.data?.statusCode === HTTP_STATUSES.OK) {
+          const vendor = vendorResponse?.data?.data?.vendor;
+          const vendorMaterialTypeIds = vendor?.material_type_ids || [];
+
+          if (vendorMaterialTypeIds.length > 0) {
+            const filteredMaterialTypes = dropdownData.allMaterialTypes.filter(
+              (mt: any) => vendorMaterialTypeIds.includes(mt.value)
+            );
+            setDropdownData((prev: any) => ({
+              ...prev,
+              materialTypes: filteredMaterialTypes,
+            }));
+          } else {
+            setDropdownData((prev: any) => ({
+              ...prev,
+              materialTypes: [],
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching vendor details:', error);
+        setDropdownData((prev: any) => ({
+          ...prev,
+          materialTypes: [],
+        }));
+      }
+    } else {
+      setDropdownData((prev: any) => ({
+        ...prev,
+        materialTypes: [],
+      }));
+    }
   };
 
   useEffect(() => {
@@ -737,7 +784,8 @@ const ProductForm = () => {
         })) || [];
 
       const data = {
-        materialTypes,
+        materialTypes: [], // Initially empty
+        allMaterialTypes: materialTypes, //  all material types
         vendors: mapToOption(
           vendorsRes?.data?.data?.vendors || [],
           'vendor_name',
@@ -757,7 +805,9 @@ const ProductForm = () => {
         ),
         branches:
           branchesRes?.data?.data?.branches?.map((item: any) => ({
-            label: item.branch_name,
+            label: item.branch_no
+              ? `${item.branch_name} (${item.branch_no})`
+              : item.branch_name,
             value: item.id,
             branch_no: item.branch_no,
           })) || [],
@@ -837,6 +887,33 @@ const ProductForm = () => {
         );
         const productGrnInfoId = product?.ref_no_id;
         const vendorOption = findOption(dropdowns.vendors, product.vendor_id);
+
+        // Filter material types based on vendor's access when loading product
+        let filteredMaterialTypes = dropdowns.materialTypes;
+        if (vendorOption?.value) {
+          try {
+            const vendorResponse: any =
+              await API_SERVICES.VendorService.getAllById(vendorOption.value);
+            if (vendorResponse?.data?.statusCode === HTTP_STATUSES.OK) {
+              const vendor = vendorResponse?.data?.data?.vendor;
+              const vendorMaterialTypeIds = vendor?.material_type_ids || [];
+
+              if (vendorMaterialTypeIds.length > 0) {
+                filteredMaterialTypes = dropdowns.allMaterialTypes.filter(
+                  (mt: any) => vendorMaterialTypeIds.includes(mt.value)
+                );
+                dropdowns.materialTypes = filteredMaterialTypes;
+                setDropdownData((prev: any) => ({
+                  ...prev,
+                  materialTypes: filteredMaterialTypes,
+                }));
+              }
+            }
+          } catch (error) {
+            console.error('Error', error);
+          }
+        }
+
         const grnOptions = await loadGrnDropdown(vendorOption);
         const grnOption = findOption(grnOptions, product.grn_id);
         let grnRefRecords = (grnOption && grnOption.grn_info_ids) || [];
@@ -1122,6 +1199,7 @@ const ProductForm = () => {
                 options={dropdownData.materialTypes}
                 value={edit.getValue('material_type_id')}
                 onChange={handleMaterialTypeChange}
+                isReadOnly={!edit.getValue('vendor_id')}
                 isError={hasError(fieldErrors.material_type_id)}
               />
             </Grid>

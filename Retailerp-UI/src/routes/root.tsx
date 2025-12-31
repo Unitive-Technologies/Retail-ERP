@@ -129,6 +129,7 @@ import OverViewDashboard from '@pages/admin/master/BranchFlow/OverViewTab/OverVi
 import OverView from '@pages/admin/master/BranchFlow/OverViewTab/OverView';
 import BranchCustomerView from '@pages/admin/master/BranchFlow/CustomerTab/BranchCustomerView';
 import BranchVendorView from '@pages/admin/master/BranchFlow/VendorTab/BranchVendorView';
+import { Checkout } from '@pages/landingPages/checkoutPage';
 
 const createRoutes = () => {
   return createBrowserRouter([
@@ -145,6 +146,10 @@ const createRoutes = () => {
           path: 'home',
           element: <LandingPage />,
           children: [
+            {
+              path: 'checkout',
+              element: <Checkout />,
+            },
             { index: true, element: <Home /> },
             { path: 'category/:categoryId', element: <ProductCategories /> },
             {
@@ -164,7 +169,7 @@ const createRoutes = () => {
             // { path: 'rings', element: <Rings /> },
             // { path: 'mangalsutra', element: <Mangalsutra /> },
             // { path: 'earrings/:option', element: <ProductCategories /> },
-            { path: 'earrings/productdetails', element: <ProductBuy /> },
+            { path: ':productName/productdetails', element: <ProductBuy /> },
             { path: 'profile', element: <ProfileSideNav /> },
             { path: 'profile/accountDetails', element: <ProfileSideNav /> },
             { path: 'profile/myCart', element: <ProfileSideNav /> },

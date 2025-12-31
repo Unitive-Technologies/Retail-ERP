@@ -49,16 +49,28 @@ const CreateCustomer = () => {
   const handleGoBack = () => navigate('/admin/customer');
 
   // Field validation
+  // Field validation
+  const mobileValue = String(edit.getValue('mobile_number') || '');
+  const isMobileExact10 = /^\d{10}$/.test(mobileValue);
+
   const fieldErrors = {
     customer_code: !edit.allFilled('customer_code'),
     customer_name: !edit.allFilled('customer_name'),
-    mobile_number: !edit.allFilled('mobile_number'),
+    // mobile must be filled and exactly 10 digits
+    mobile_number: !edit.allFilled('mobile_number') || !isMobileExact10,
     address: !edit.allFilled('address'),
     country_id: !edit.getValue('country_id')?.value,
     state_id: !edit.getValue('state_id')?.value,
     district_id: !edit.getValue('district_id')?.value,
-    pin_code: !edit.allFilled('pin_code'),
+    // pin_code must be filled and exactly 6 digits
+    pin_code: !edit.allFilled('pin_code') || !/^\d{6}$/.test(String(edit.getValue('pin_code') || '')),
   };
+
+  // show live mobile error while typing (only when user has entered something)
+  const mobileLiveError = mobileValue.length > 0 && !isMobileExact10;
+  // live PIN error while typing
+  const pinValue = String(edit.getValue('pin_code') || '');
+  const pinLiveError = pinValue.length > 0 && !/^\d{6}$/.test(pinValue);
 
   const hasError = (specificError: boolean) => isError && specificError;
 
@@ -160,11 +172,35 @@ const CreateCustomer = () => {
     // Reset dependent dropdowns
     setDropdownData((prev: any) => ({
       ...prev,
+      states: [],
       districts: [],
     }));
     
-    // If needed, you can add country-specific state loading logic here
-    // For now, we'll keep all states available
+    // Load states based on selected country
+    if (value?.value) {
+      try {
+        const res: any = await DropDownServiceAll.getAllStates({
+          country_id: value.value,
+        });
+        
+        const states = (res?.data?.data?.states || []).map((item: any) => ({
+          label: item.state_name,
+          value: item.id,
+        }));
+        
+        setDropdownData((prev: any) => ({
+          ...prev,
+          states,
+        }));
+      } catch (error) {
+        console.error('Failed to load states:', error);
+        toast.error('Failed to load states');
+        setDropdownData((prev: any) => ({
+          ...prev,
+          states: [],
+        }));
+      }
+    }
   };
 
   const handleDistrictChange = (_event: any, value: any) => {
@@ -173,20 +209,14 @@ const CreateCustomer = () => {
 
   const fetchDropdowns = async () => {
     try {
-      const [countriesRes, statesRes]: any = await Promise.all([
-        DropDownServiceAll.getAllCountry(),
-        DropDownServiceAll.getAllStates(),
-      ]);
+      const countriesRes: any = await DropDownServiceAll.getAllCountry();
 
       const data = {
         countries: (countriesRes?.data?.data?.countries || []).map((item: any) => ({
           label: item.country_name,
           value: item.id,
         })),
-        states: (statesRes?.data?.data?.states || []).map((item: any) => ({
-          label: item.state_name,
-          value: item.id,
-        })),
+        states: [],
         districts: [],
       };
 
@@ -208,32 +238,59 @@ const CreateCustomer = () => {
       if (response?.data?.statusCode === HTTP_STATUSES.OK) {
         const customerData = response.data.data.customer;
         
+        let states: any[] = [];
         let districts: any[] = [];
+        
+        // Load states for the selected country
+        if (customerData.country_id) {
+          try {
+            const statesRes: any = await DropDownServiceAll.getAllStates({
+              country_id: customerData.country_id,
+            });
+            
+            states = (statesRes?.data?.data?.states || []).map((item: any) => ({
+              label: item.state_name,
+              value: item.id,
+            }));
+            
+            setDropdownData((prev: any) => ({
+              ...prev,
+              states,
+            }));
+          } catch (error) {
+            console.error('Failed to load states:', error);
+          }
+        }
         
         // Load districts for the selected state
         if (customerData.state_id) {
-          const districtRes: any = await DropDownServiceAll.getAllDistricts({
-            state_id: customerData.state_id,
-          });
-          
-          districts = (districtRes?.data?.data?.districts || []).map((item: any) => ({
-            label: item.district_name,
-            value: item.id,
-          }));
-          
-          setDropdownData((prev: any) => ({
-            ...prev,
-            districts,
-          }));
+          try {
+            const districtRes: any = await DropDownServiceAll.getAllDistricts({
+              state_id: customerData.state_id,
+            });
+            
+            districts = (districtRes?.data?.data?.districts || []).map((item: any) => ({
+              label: item.district_name,
+              value: item.id,
+            }));
+            
+            setDropdownData((prev: any) => ({
+              ...prev,
+              districts,
+            }));
+          } catch (error) {
+            console.error('Failed to load districts:', error);
+          }
         }
 
         const findOption = (options: any[], id: number) => {
           return options.find((opt: any) => opt.value === id) || '';
         };
 
-        // Use the loaded districts instead of dropdowns.districts
+        // Use the loaded states and districts
         const updatedDropdowns = {
           ...dropdowns,
+          states,
           districts,
         };
 
@@ -352,7 +409,7 @@ const CreateCustomer = () => {
               }
               placeholder="COD-001"
               isError={hasError(fieldErrors.customer_code)}
-              disabled={isReadOnly}
+              disabled={true}
             />
           </Grid>
 
@@ -381,7 +438,8 @@ const CreateCustomer = () => {
                 handleValidatedChange(e, edit, 'mobile_number', 'number')
               }
               placeholder="Enter mobile number"
-              isError={hasError(fieldErrors.mobile_number)}
+              isError={mobileLiveError || hasError(fieldErrors.mobile_number)}
+              inputProps={{ maxLength: 10, inputMode: 'numeric', pattern: '[0-9]*' }}
               disabled={isReadOnly}
             />
           </Grid>
@@ -448,7 +506,8 @@ const CreateCustomer = () => {
                 handleValidatedChange(e, edit, 'pin_code', 'number')
               }
               placeholder="Enter PIN code"
-              isError={hasError(fieldErrors.pin_code)}
+              isError={pinLiveError || hasError(fieldErrors.pin_code)}
+              inputProps={{ maxLength: 6, inputMode: 'numeric', pattern: '[0-9]*' }}
               disabled={isReadOnly}
             />
           </Grid>

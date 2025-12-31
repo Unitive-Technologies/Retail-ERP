@@ -8,6 +8,9 @@ type MaterialTypeProp = {
     material_type: string;
     material_image_url: string;
     material_price: number;
+    purity_name: string;
+    purity_percentage: number;
+    website_visibility: boolean;
   };
   successMessage?: string;
   failureMessage?: string;
@@ -85,6 +88,38 @@ export const MaterialTypeService = {
     const options = await apiOptions({
       url: `${Config.BASE_URL}${SERVICE_URL.MATERIAL_TYPE}/${id}`,
       method: 'delete',
+    });
+    const toastMessageConfig: any = {
+      success: {
+        message: successMessage,
+      },
+      failure: {
+        message: failureMessage,
+      },
+    };
+    return apiRequest(options, toastMessageConfig);
+  },
+
+  bulkReplace: async (
+    materials: Array<{
+      id: number;
+      material_type: string;
+      material_image_url: string;
+      material_price: number;
+      website_visibility: boolean;
+    }>,
+    {
+      successMessage,
+      failureMessage,
+    }: {
+      successMessage?: string;
+      failureMessage?: string;
+    }
+  ) => {
+    const options = await apiOptions({
+      url: `${Config.BASE_URL}${SERVICE_URL.MATERIAL_TYPE}/bulk`,
+      method: 'put',
+      data: { materials },
     });
     const toastMessageConfig: any = {
       success: {

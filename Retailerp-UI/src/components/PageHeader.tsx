@@ -9,7 +9,7 @@ import { ReactNode } from 'react';
 import { EditBtnIcon } from '@assets/Images/AdminImages';
 
 type Props = {
-  titleStyle?:any;
+  titleStyle?: any;
   count?: number;
   btnName?: string;
   showDownloadBtn?: boolean;
@@ -31,6 +31,8 @@ type Props = {
   switchTabContainerWidth?: string;
   handleCloseClick?: () => void;
   listBtnName?: string | null;
+  onDownloadClick?: (e: any) => void;
+  onPrintClick?: (e: any) => void;
 };
 
 export type PageHeaderProps =
@@ -80,6 +82,8 @@ const PageHeader = ({
   switchTabContainerWidth = '262px',
   handleCloseClick,
   listBtnName = null,
+  onDownloadClick,
+  onPrintClick,
 }: PageHeaderProps) => {
   const theme = useTheme();
   const navigateTo = useNavigate();
@@ -105,11 +109,11 @@ const PageHeader = ({
 
   const handleListClick = () => {
     if (navigateUrl) {
-      navigateTo(navigateUrl, { state: navigateState })
+      navigateTo(navigateUrl, { state: navigateState });
     } else {
       handleCloseClick?.();
     }
-  }
+  };
 
   return (
     <Grid
@@ -133,11 +137,11 @@ const PageHeader = ({
           {/* Heading */}
           {title && (
             <Typography
+              variant="inherit"
               sx={{
-                fontFamily: 'Roboto',
-                fontSize: '16px',
-                fontWeight: 600,
-                color: '#000',
+                fontWeight: 500,
+                fontFamily: 'Roboto-Medium',
+                fontSize: 16,
                 ...titleStyle,
               }}
             >
@@ -229,41 +233,47 @@ const PageHeader = ({
             </Box>
           )}
           {title && (
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <MUHTypography
-            text={title}
-            size={16}
-            weight={600}
-            color={
-              count != null || showBackButton
-                ? theme.Colors.black
-                : theme.Colors.primary
-            }
-            family={'Roboto-Regular'}
-          sx={{ textTransform: 'uppercase',...titleStyle }}
-          />
-          {count != null ? (
-            <MUHTypography
-              text={`(${count})`}
-              size={16}
-              weight={600}
-              color={theme.Colors.primary}
-              family={'Roboto-Regular'}
-              sx={{ textTransform: 'uppercase' }}
-            />
-          ) : null}
-        </Box>
-      )}
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <MUHTypography
+                text={title}
+                size={16}
+                weight={600}
+                color={
+                  count != null || showBackButton
+                    ? theme.Colors.black
+                    : theme.Colors.primary
+                }
+                family={'Roboto-Regular'}
+                sx={{ textTransform: 'uppercase', ...titleStyle }}
+              />
+              {count != null ? (
+                <MUHTypography
+                  text={`(${count})`}
+                  size={16}
+                  weight={600}
+                  color={theme.Colors.primary}
+                  family={'Roboto-Regular'}
+                  sx={{ textTransform: 'uppercase' }}
+                />
+              ) : null}
+            </Box>
+          )}
         </>
       )}
 
       <Box sx={{ display: 'flex', gap: 1.5 }}>
         {showDownloadBtn ? (
           <>
-            <Box sx={{ ...iconBox, background: theme.Colors.primaryLight }}>
+            <Box
+              sx={{ ...iconBox, background: theme.Colors.primaryLight }}
+              onClick={(e) => onDownloadClick?.(e)}
+            >
               <img src={DownloadIconPdf} width={24} height={24} />
             </Box>
-            <Box sx={{ ...iconBox, background: theme.Colors.primaryLight }}>
+            <Box
+              sx={{ ...iconBox, background: theme.Colors.primaryLight }}
+              onClick={(e) => onPrintClick?.(e)}
+            >
               <img src={PrintOutIcon} width={22.5} height={23} />
             </Box>
           </>

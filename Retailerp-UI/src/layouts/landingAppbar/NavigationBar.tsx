@@ -1134,6 +1134,7 @@ export const NavigationBar = () => {
                   startIcon={<SavingsSchemeIcon />}
                   buttonText="Savings Scheme"
                   buttonFontSize={12}
+                  btnWidth={"max-content"}
                   bgColor={`linear-gradient(90deg, ${theme.Colors.primary} 0%, ${theme.Colors.primaryDarkEnd} 100%)`}
                   buttonTextColor={theme.Colors.whitePrimary}
                   buttonFontWeight={500}

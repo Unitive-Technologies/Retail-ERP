@@ -142,42 +142,45 @@ const ContactDetails = ({ edit, isError, fieldErrors, type }: Props) => {
   }, [edit?.getValue('country_id'), edit?.getValue('state_id')]);
 
   return (
-    <Grid
-      container
-      width={'100%'}
-      sx={{
-        borderRadius: '8px',
-        alignContent: 'flex-start',
-        backgroundColor: theme.Colors.whitePrimary,
-      }}
-    >
+    <Grid container width={'100%'} spacing={2}>
+      {/* Employee Contact Details Frame */}
       <Grid
         container
         size={{ xs: 12, md: 12 }}
         sx={{
-          borderBottom: `1px solid ${theme.Colors.grayLight}`,
-          padding: '20px',
+          borderRadius: '8px',
+          alignContent: 'flex-start',
+          backgroundColor: theme.Colors.whitePrimary,
+          border: `1px solid ${theme.Colors.grayLight}`,
           marginTop: '20px',
         }}
       >
-        <Typography
+        <Grid
+          container
+          size={{ xs: 12, md: 12 }}
           sx={{
-            fontSize: theme.MetricsSizes.small_xxx,
-            fontWeight: theme.fontWeight.mediumBold,
-            color: theme.Colors.black,
-            fontFamily: theme.fontFamily.roboto,
+            borderBottom: `1px solid ${theme.Colors.grayLight}`,
+            padding: '20px',
           }}
         >
-          EMPLOYEE CONTACT DETAILS
-        </Typography>
-      </Grid>
-      <Grid
-        container
-        width={'100%'}
-        sx={{
-          padding: '20px',
-        }}
-      >
+          <Typography
+            sx={{
+              fontSize: theme.MetricsSizes.small_xxx,
+              fontWeight: theme.fontWeight.mediumBold,
+              color: theme.Colors.black,
+              fontFamily: theme.fontFamily.roboto,
+            }}
+          >
+            EMPLOYEE CONTACT DETAILS
+          </Typography>
+        </Grid>
+        <Grid
+          container
+          width={'100%'}
+          sx={{
+            padding: '20px',
+          }}
+        >
         <Grid size={{ xs: 12, md: 6 }} sx={styles.leftItem}>
           <TextInput
             inputLabel="Mobile Number"
@@ -311,35 +314,47 @@ const ContactDetails = ({ edit, isError, fieldErrors, type }: Props) => {
             {...commonTextInputProps}
           />
         </Grid>
+        </Grid>
       </Grid>
 
+      {/* Emergency Contact Details Frame */}
       <Grid
         container
         size={{ xs: 12, md: 12 }}
         sx={{
-          borderBottom: `1px solid ${theme.Colors.grayLight}`,
+          borderRadius: '8px',
+          alignContent: 'flex-start',
+          backgroundColor: theme.Colors.whitePrimary,
+          border: `1px solid ${theme.Colors.grayLight}`,
           marginTop: '20px',
-          padding: '20px',
         }}
       >
-        <Typography
+        <Grid
+          container
+          size={{ xs: 12, md: 12 }}
           sx={{
-            fontSize: theme.MetricsSizes.small_xxx,
-            fontWeight: theme.fontWeight.mediumBold,
-            color: theme.Colors.black,
-            fontFamily: theme.fontFamily.roboto,
+            borderBottom: `1px solid ${theme.Colors.grayLight}`,
+            padding: '20px',
           }}
         >
-          EMERGENCY CONTACT DETAILS
-        </Typography>
-      </Grid>
-      <Grid
-        container
-        width={'100%'}
-        sx={{
-          padding: '20px',
-        }}
-      >
+          <Typography
+            sx={{
+              fontSize: theme.MetricsSizes.small_xxx,
+              fontWeight: theme.fontWeight.mediumBold,
+              color: theme.Colors.black,
+              fontFamily: theme.fontFamily.roboto,
+            }}
+          >
+            EMERGENCY CONTACT DETAILS
+          </Typography>
+        </Grid>
+        <Grid
+          container
+          width={'100%'}
+          sx={{
+            padding: '20px',
+          }}
+        >
         <Grid size={{ xs: 12, md: 6 }} sx={styles.leftItem}>
           <TextInput
             inputLabel="Emergency Contact Person"
@@ -402,6 +417,7 @@ const ContactDetails = ({ edit, isError, fieldErrors, type }: Props) => {
             isError={hasError(fieldErrors?.emergency_number)}
             {...commonTextInputProps}
           />
+        </Grid>
         </Grid>
       </Grid>
     </Grid>

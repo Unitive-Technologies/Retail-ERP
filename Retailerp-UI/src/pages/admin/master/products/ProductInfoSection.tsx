@@ -55,7 +55,13 @@ const ProductInfoSection: React.FC<Props> = ({
         <TextInput
           inputLabel="HSN Code"
           value={edit.getValue('hsn_code')}
-          onChange={(e: any) => edit.update({ hsn_code: e.target.value })}
+          onChange={(e: any) => {
+            const value = e.target.value;
+            // Only allow positive numbers (digits only, no negative sign, no decimal)
+            if (value === '' || /^\d+$/.test(value)) {
+              edit.update({ hsn_code: value });
+            }
+          }}
           isError={hasError(fieldErrors?.hsn_code)}
           {...commonTextInputProps}
         />

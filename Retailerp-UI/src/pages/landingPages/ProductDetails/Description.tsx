@@ -15,16 +15,52 @@ import {
   useTheme,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import {
-  description,
-  jewelleryCare,
-  priceBreakupData,
-  productDetails,
-  totalAmount,
-} from '@constants/index';
+import { formatCurrency, jewelleryCare } from '@constants/index';
+import { ProductItemDetails } from 'response';
 
-const Description = () => {
+interface DescriptionProps {
+  productItemsDetails: ProductItemDetails;
+  purity: string;
+  materialType: string;
+  description: string;
+}
+
+const Description = ({
+  productItemsDetails,
+  purity,
+  materialType,
+  description,
+}: DescriptionProps) => {
   const theme = useTheme();
+  const productDetails = [
+    { label: 'Purity', value: purity },
+    { label: 'Grs Weight', value: productItemsDetails?.gross_weight || 0 },
+    { label: 'Net Weight', value: productItemsDetails?.net_weight || 0 },
+    { label: 'Stone Weight', value: productItemsDetails?.stone_weight || 0 },
+    {
+      label: 'Dimensions',
+      value: productItemsDetails?.measurement_details || 0,
+    },
+  ];
+  const priceBreakupData = [
+    {
+      description: materialType,
+      rate: formatCurrency(productItemsDetails?.price_details?.material_rate_per_gram) || 0,
+      amount: formatCurrency(productItemsDetails?.price_details?.material_contribution) || 0,
+    },
+    { description: 'Making Charge', rate:  formatCurrency(productItemsDetails?.making_charge), amount: formatCurrency(productItemsDetails?.price_details?.making_charge) },
+    { description: 'Wastage', rate:  '-', amount: formatCurrency(productItemsDetails?.price_details?.wastage) },
+    { description: 'Tax', rate: '-', amount: '-' },
+  ];
+
+  // Calculate total price by summing original numeric values before formatting
+  const totalPrice = [
+    productItemsDetails?.price_details?.material_contribution || 0,
+    productItemsDetails?.price_details?.making_charge || 0,
+    productItemsDetails?.price_details?.wastage || 0
+
+  ].reduce((sum, amount) => sum + (typeof amount === 'string' ? parseFloat(amount) || 0 : amount), 0);
+
   return (
     <Box
       sx={{
@@ -76,7 +112,7 @@ const Description = () => {
               color: '#000',
             }}
           >
-            {description.text}
+            {description}
           </Typography>
         </AccordionDetails>
       </Accordion>
@@ -161,8 +197,19 @@ const Description = () => {
                   >
                     {item.label === 'Dimensions' ? (
                       <Box sx={{ display: 'flex', gap: 4 }}>
-                        <Typography>Width: 1.2 cm</Typography>
-                        <Typography>Length: 2.2 cm</Typography>
+                        {item.value &&
+                        Array.isArray(item.value) &&
+                        item.value.length > 0 ? (
+                          item.value.map((dimension, dimIndex) => (
+                            <Typography key={dimIndex}>
+                              {dimension.label_name}{' '}
+                              {dimension.label_name ? ' : ' : '-'}
+                              {dimension.value} {dimension.measurement_type}
+                            </Typography>
+                          ))
+                        ) : (
+                          <Typography>Dimensions not available</Typography>
+                        )}
                       </Box>
                     ) : (
                       item.value
@@ -277,7 +324,9 @@ const Description = () => {
                 }}
               >
                 <TableCell colSpan={2}>Total</TableCell>
-                <TableCell>{totalAmount}</TableCell>
+                <TableCell>
+                  {formatCurrency(totalPrice)}
+                </TableCell>
               </TableRow>
             </TableBody>
           </Table>

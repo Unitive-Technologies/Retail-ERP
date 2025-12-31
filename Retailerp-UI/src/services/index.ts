@@ -30,6 +30,10 @@ import { RolePermissionService } from './RolePermissionService';
 import { EmployeeRoleAddService } from './EmployeeRoleAddService';
 import { EmployeeDepAddService } from './EmployeeDepAddService';
 import { RoleCreateService } from './RoleCreateService';
+import { EmployeePermissionService } from './EmployeePermissionService';
+import { EmployeeRoleDropdownService } from './EmployeeRoleDropdownService';
+import { OnlineOrdersService } from './OnlineOrdersService';
+import { OrderService } from './OrderService';
 
 export const API_SERVICES = {
   InvoiceService,
@@ -64,4 +68,8 @@ export const API_SERVICES = {
   EmployeeRoleAddService,
   EmployeeDepAddService,
   RoleCreateService,
+  EmployeePermissionService,
+  EmployeeRoleDropdownService,
+  OnlineOrdersService,
+  OrderService,
 };

@@ -1,6 +1,6 @@
 import { ConfirmModal, MUHTable } from '@components/index';
 import PageHeader from '@components/PageHeader';
-import { vendorListData } from '@constants/DummyData';
+import MenuDropDown from '@components/MUHMenuDropDown';
 import Grid from '@mui/system/Grid';
 import { useEffect, useState } from 'react';
 import { contentLayout } from '@components/CommonStyles';
@@ -9,9 +9,14 @@ import { GridColDef } from '@mui/x-data-grid';
 import { CONFIRM_MODAL, HTTP_STATUSES } from '@constants/Constance';
 import { GoldenPlanImages, RowEditIcon, RowViewIcon } from '@assets/Images';
 import { useNavigate } from 'react-router-dom';
-import { Typography, useTheme } from '@mui/material';
+import { Box, Tooltip, Typography, useTheme } from '@mui/material';
 import VendorTableFilter from './VendorTableFilter';
 import { API_SERVICES } from '@services/index';
+import {
+  PDF_TITLE,
+  VENDOR_LIST_COLUMN_MAPPING,
+  VENDOR_LIST_PDF_HEADERS,
+} from '@constants/PdfConstants';
 
 const VendorList = () => {
   const theme = useTheme();
@@ -20,6 +25,7 @@ const VendorList = () => {
   const [confirmModalOpen, setconfirmModalOpen] = useState({ open: false });
   const [hiddenColumns, setHiddenColumns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
 
   const initialValues = {
     status: 0,
@@ -39,8 +45,14 @@ const VendorList = () => {
       headerAlign: 'left',
       align: 'center',
       renderCell: (params: any) => {
-        const index = params.api.getSortedRowIds().indexOf(params.id); // Get visible index
-        const serialNumber = index + 1;
+        // Find the row's index in the full vendorList array to get correct serial number across pages
+        const fullIndex = vendorList.findIndex(
+          (row: any) => row.id === params.row.id
+        );
+        const serialNumber =
+          fullIndex >= 0
+            ? fullIndex + 1
+            : params.api.getSortedRowIds().indexOf(params.id) + 1;
         return <span>{serialNumber}</span>;
       },
     },
@@ -50,6 +62,7 @@ const VendorList = () => {
       flex: 1.3,
       sortable: false,
       disableColumnMenu: true,
+      valueGetter: (params: any) => params?.row?.vendor_name || '',
       renderCell: (params: any) => {
         const row = params?.row || {};
         const src = row.vendor_image_url || GoldenPlanImages;
@@ -96,46 +109,55 @@ const VendorList = () => {
         );
       },
     },
+
     {
       field: 'material_types_detailed',
       headerName: 'Material Type',
-      flex: 1,
+      flex: 1.3,
       sortable: false,
       disableColumnMenu: true,
-      headerAlign: 'left',
-      align: 'center',
+
       renderCell: (params: any) => {
         const data = params?.row?.material_types_detailed;
+
         const names = Array.isArray(data)
           ? data
               .map((itm: any) => itm?.name)
               .filter(Boolean)
               .join(', ')
           : data?.name || '';
+
         return (
-          <>
-            <Grid
-              sx={{
-                display: 'flex',
-                gap: 1,
-                height: '100%',
-                alignItems: 'center',
-              }}
-            >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              // justifyContent: 'center',
+              width: '100%',
+              height: '100%',
+            }}
+          >
+            <Tooltip title={names} arrow placement="bottom">
               <Typography
                 sx={{
                   fontSize: 14,
                   fontWeight: 400,
                   color: theme.Colors.black,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: '100%',
+                  cursor: 'pointer',
                 }}
               >
-                {names}
+                {names || '-'}
               </Typography>
-            </Grid>
-          </>
+            </Tooltip>
+          </Box>
         );
       },
     },
+
     {
       field: 'proprietor_name',
       headerName: 'Contact Person',
@@ -156,8 +178,7 @@ const VendorList = () => {
       flex: 0.8,
       sortable: false,
       disableColumnMenu: true,
-      renderCell: (params: any) => {
-        const row = params?.row || {};
+      renderCell: () => {
         return (
           <Grid
             sx={{
@@ -175,7 +196,6 @@ const VendorList = () => {
                   color: theme.Colors.black,
                 }}
               >
-                {/* {row.createdBy} */}
                 Super Admin
               </Typography>
               {/* <Typography
@@ -215,6 +235,42 @@ const VendorList = () => {
   const handleFilterClear = () => {
     edit.reset();
     setHiddenColumns([]);
+  };
+
+  // Use constants from PdfConstants
+  const columnMapping = VENDOR_LIST_COLUMN_MAPPING;
+  const pdfHeaders = VENDOR_LIST_PDF_HEADERS;
+  const fileName = PDF_TITLE.vendorList;
+
+  // Transform data for PDF export
+  const pdfData: any = vendorList?.length
+    ? vendorList.map((rowData: any, index: number) => {
+        const materialTypes = rowData?.material_types_detailed;
+        const materialTypeString = Array.isArray(materialTypes)
+          ? materialTypes
+              .map((itm: any) => itm?.name)
+              .filter(Boolean)
+              .join(', ')
+          : materialTypes?.name || '-';
+
+        return {
+          s_no: index + 1,
+          vendor_name: rowData?.vendor_name || '-',
+          vendor_code: rowData?.vendor_code || '-',
+          material_type: materialTypeString || '-',
+          contact_person: rowData?.proprietor_name || '-',
+          contact_number: rowData?.mobile || '-',
+          created_by: rowData?.createdBy || 'Super Admin',
+        };
+      })
+    : [];
+
+  const handleOpenDownloadMenu = (e: any) => {
+    setMenuAnchorEl(e.currentTarget as HTMLElement);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuAnchorEl(null);
   };
 
   const handleEditUser = (rowData: any, type: string) => {
@@ -296,16 +352,52 @@ const VendorList = () => {
           count={vendorList.length}
           btnName="Create Vendor"
           navigateUrl="/admin/master/vendorCreate/form?type=create"
+          showDownloadBtn={true}
+          onDownloadClick={handleOpenDownloadMenu}
+          onPrintClick={() => window.print()}
         />
 
-        <Grid container sx={contentLayout}>
-          <VendorTableFilter
-            selectItems={columns}
-            selectedValue={hiddenColumns}
-            handleSelectValue={handleSelectValue}
-            handleFilterClear={handleFilterClear}
-            edit={edit}
-          />
+        <Grid container sx={contentLayout} className="print-area">
+          {/* Print heading */}
+          <div
+            className="print-only"
+            style={{ width: '100%', marginBottom: 12 }}
+          >
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 600,
+                color: '#000',
+                // borderBottom: '1px solid #ddd',
+                paddingBottom: 8,
+                marginBottom: 8,
+              }}
+            >
+              Vendor List ({vendorList.length})
+            </div>
+          </div>
+
+          {/* Filters and download controls - hide in print */}
+          <div className="print-hide" style={{ width: '100%' }}>
+            <MenuDropDown
+              anchorEl={menuAnchorEl}
+              handleCloseMenu={handleCloseMenu}
+              hiddenCols={hiddenColumns}
+              columnMapping={columnMapping}
+              pdfData={pdfData}
+              pdfHeaders={pdfHeaders}
+              fileName={fileName}
+              address={''}
+            />
+            <VendorTableFilter
+              selectItems={columns}
+              selectedValue={hiddenColumns}
+              handleSelectValue={handleSelectValue}
+              handleFilterClear={handleFilterClear}
+              edit={edit}
+            />
+          </div>
+
           <MUHTable
             columns={columns.filter(
               (column) => !hiddenColumns.includes(column.headerName)

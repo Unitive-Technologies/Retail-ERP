@@ -21,7 +21,7 @@ const FeaturesBar = () => {
       }}
     >
       {featureList.map((item, idx) => (
-        <Grid container size={{ xs: 6, sm: 6, md: 3, lg: 3, xl: 3 }}>
+        <Grid key={`feature-${idx}`} container size={{ xs: 6, sm: 6, md: 3, lg: 3, xl: 3 }}>
           <Box
             sx={{
               display: 'flex',
@@ -32,7 +32,16 @@ const FeaturesBar = () => {
               width: '99%',
             }}
           >
-            <img src={item.icon} />
+            <Box
+              component="img"
+              src={item.icon} 
+              sx={{
+                [theme.breakpoints.down('md')]: {
+                  height: '30px',
+                  width: '30px',
+                },
+              }}
+            />
             <Box
               display={'flex'}
               flexDirection={'column'}

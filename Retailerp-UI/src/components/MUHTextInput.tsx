@@ -69,7 +69,7 @@ const MUHTextInput = (props: Props) => {
     borderWidth = theme.Spacing.tiny_x,
     focusBorderColor = isReadOnly
       ? theme.Colors.silverFoilWhite
-      : theme.Colors.whitePrimary,
+      : theme.Colors.primary,
     inputBoxTextStyle,
     labelFlexSize = 5,
     backgroundColor,
@@ -221,9 +221,7 @@ const MUHTextInput = (props: Props) => {
           {...rest}
           type={type}
           placeholder={placeholderText}
-          inputProps={{
-            readOnly: isReadOnly,
-          }}
+          inputProps={{ ...(rest.inputProps || {}), readOnly: isReadOnly }}
           onChange={(e) => {
             const value = e.target.value;
             if (value.startsWith(' ')) return;

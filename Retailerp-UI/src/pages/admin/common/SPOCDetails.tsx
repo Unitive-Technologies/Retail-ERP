@@ -34,6 +34,11 @@ const SPOCDetails = ({ edit, type }: Props) => {
 
   const defaultRow = [{ contact_name: '', mobile: '', designation: '' }];
 
+  const isMobileInvalid = (mobile: any) => {
+    const digits = String(mobile || '').replace(/\D/g, '');
+    return digits.length > 0 && digits.length !== 10;
+  };
+
   const handleAddRow = () => {
     const lastRow = rows[rows.length - 1];
 
@@ -153,7 +158,8 @@ const SPOCDetails = ({ edit, type }: Props) => {
               <TextInput
                 placeholderText="Enter Name"
                 value={row.contact_name}
-                isReadOnly={type === 'view'}
+                disabled={isReadOnly}
+                isReadOnly={isReadOnly}
                 onChange={(e: any) => {
                   if (isAlphaNumericWithSpace(e.target.value)) {
                     handleInputChange(index, 'contact_name', e.target.value);
@@ -182,6 +188,7 @@ const SPOCDetails = ({ edit, type }: Props) => {
               <TextInput
                 placeholderText="Enter Mobile Number"
                 value={row.mobile}
+                disabled={isReadOnly}
                 onChange={(e: any) => {
                   const cleaned = String(e.target.value || '')
                     .replace(/\D/g, '')
@@ -189,7 +196,8 @@ const SPOCDetails = ({ edit, type }: Props) => {
 
                   handleInputChange(index, 'mobile', cleaned);
                 }}
-                isReadOnly={type === 'view'}
+                isReadOnly={isReadOnly}
+                isError={isMobileInvalid(row.mobile)}
                 {...tableTextInputProps}
               />
             </Grid>
@@ -207,12 +215,13 @@ const SPOCDetails = ({ edit, type }: Props) => {
               <TextInput
                 placeholderText="Enter Designation"
                 value={row.designation}
+                disabled={isReadOnly}
                 onChange={(e: any) => {
                   if (isAlphaNumericWithSpace(e.target.value)) {
                     handleInputChange(index, 'designation', e.target.value);
                   }
                 }}
-                isReadOnly={type === 'view'}
+                isReadOnly={isReadOnly}
                 {...tableTextInputProps}
               />
             </Grid>

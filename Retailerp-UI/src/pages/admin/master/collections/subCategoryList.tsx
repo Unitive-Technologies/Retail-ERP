@@ -13,6 +13,12 @@ import { CONFIRM_MODAL, HTTP_STATUSES } from '@constants/Constance';
 import { useNavigate } from 'react-router-dom';
 import { API_SERVICES } from '@services/index';
 import SubCategoryTableFilter from './subCategoryTableFilter';
+import MenuDropDown from '@components/MUHMenuDropDown';
+import {
+  PDF_TITLE,
+  SUB_CATEGORY_LIST_COLUMN_MAPPING,
+  SUB_CATEGORY_LIST_PDF_HEADERS,
+} from '@constants/PdfConstants';
 
 const SubCategoryList = () => {
   const navigateTo = useNavigate();
@@ -21,6 +27,7 @@ const SubCategoryList = () => {
   const [hiddenColumns, setHiddenColumns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmModalOpen, setConfirmModalOpen] = useState({ open: false });
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const initialValues = {
     search: '',
     material_type: '',
@@ -227,6 +234,29 @@ const SubCategoryList = () => {
       window.removeEventListener('focus', handleFocus);
     };
   }, []);
+  // PDF / Print config
+  const columnMapping = SUB_CATEGORY_LIST_COLUMN_MAPPING;
+  const pdfHeaders = SUB_CATEGORY_LIST_PDF_HEADERS;
+  const fileName = PDF_TITLE.subCategoryList;
+
+  const pdfData: any = subCategoryData?.length
+    ? subCategoryData.map((row: any, index: number) => ({
+        s_no: index + 1,
+        material_type: row?.material_type || '',
+        category_name: row?.category_name || '',
+        sub_category_name: row?.sub_category_name || '',
+        reorder_level: row?.reorder_level || '',
+      }))
+    : [];
+
+  const handleOpenDownloadMenu = (e: any) => {
+    setMenuAnchorEl(e.currentTarget as HTMLElement);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuAnchorEl(null);
+  };
+
   return (
     <>
       <Grid container width={'100%'} mt={1.2}>
@@ -236,15 +266,50 @@ const SubCategoryList = () => {
           btnName="Create Sub Category"
           navigateUrl={`/admin/master/collections/subCategory/form?type=create`}
           navigateState={{ rowData: {}, type: CONFIRM_MODAL.create }}
+          showDownloadBtn={true}
+          onDownloadClick={handleOpenDownloadMenu}
+          onPrintClick={() => window.print()}
         />
-        <Grid container sx={contentLayout} mt={0}>
-          <SubCategoryTableFilter
-            selectItems={columns}
-            handleSelectValue={handleSelectValue}
-            selectedValue={hiddenColumns}
-            handleFilterClear={handleFilterClear}
-            edit={edit}
-          />
+        <Grid container sx={contentLayout} className="print-area" mt={0}>
+          {/* Print heading */}
+          <div
+            className="print-only"
+            style={{ width: '100%', marginBottom: 12 }}
+          >
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 600,
+                color: '#000',
+                paddingBottom: 8,
+                marginBottom: 8,
+              }}
+            >
+              Sub Category List ({subCategoryData.length})
+            </div>
+          </div>
+
+          {/* Filters & download - hide in print */}
+          <div className="print-hide" style={{ width: '100%' }}>
+            <MenuDropDown
+              anchorEl={menuAnchorEl}
+              handleCloseMenu={handleCloseMenu}
+              hiddenCols={hiddenColumns}
+              columnMapping={columnMapping}
+              pdfData={pdfData}
+              pdfHeaders={pdfHeaders}
+              fileName={fileName}
+              address={''}
+            />
+            <SubCategoryTableFilter
+              selectItems={columns}
+              handleSelectValue={handleSelectValue}
+              selectedValue={hiddenColumns}
+              handleFilterClear={handleFilterClear}
+              edit={edit}
+            />
+          </div>
+
           <MUHTable
             columns={columns.filter(
               (column) => !hiddenColumns.includes(column.headerName)
