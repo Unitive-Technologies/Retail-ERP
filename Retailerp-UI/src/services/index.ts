@@ -25,6 +25,7 @@ import { GrnService } from './GrnService';
 import { StateService } from './StateService';
 import { DistrictService } from './DistrictService';
 import { CustomerService } from './CustomerService';
+import { CustomerListService } from './CustomerListService';
 import { RoleService } from './RoleService';
 import { RolePermissionService } from './RolePermissionService';
 import { EmployeeRoleAddService } from './EmployeeRoleAddService';
@@ -34,6 +35,7 @@ import { EmployeePermissionService } from './EmployeePermissionService';
 import { EmployeeRoleDropdownService } from './EmployeeRoleDropdownService';
 import { OnlineOrdersService } from './OnlineOrdersService';
 import { OrderService } from './OrderService';
+import { OfferService } from './OfferService';
 
 export const API_SERVICES = {
   InvoiceService,
@@ -63,6 +65,7 @@ export const API_SERVICES = {
   StateService,
   DistrictService,
   CustomerService,
+  CustomerListService,
   RoleService,
   RolePermissionService,
   EmployeeRoleAddService,
@@ -72,4 +75,5 @@ export const API_SERVICES = {
   EmployeeRoleDropdownService,
   OnlineOrdersService,
   OrderService,
+  OfferService,
 };

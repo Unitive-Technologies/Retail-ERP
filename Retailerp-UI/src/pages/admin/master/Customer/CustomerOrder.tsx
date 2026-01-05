@@ -1,22 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
 import Grid from '@mui/material/Grid2';
 import { GridColDef } from '@mui/x-data-grid';
 import { MUHTable } from '@components/index';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { useEdit } from '@hooks/useEdit';
 import MUHListItemCell from '@components/MUHListItemCell';
-import ChipComponent from '@components/ChipComponent';
 import ProfileCard from '@components/ProjectCommon/ProfileCard';
 import CustomerOrderFilter from './CustomerOrderFilter';
 import PageHeader from '@components/PageHeader';
 import SchemeDetails from './SchemeDetails';
-import { sampleOrderData } from '@constants/DummyData';
 import { contentLayout } from '@components/CommonStyles';
+import { API_SERVICES } from '@services/index';
+import { HTTP_STATUSES } from '@constants/Constance';
+import toast from 'react-hot-toast';
 
 const CustomerOrderDetails = () => {
   const theme = useTheme();
-  const navigate = useNavigate();
   const location = useLocation();
   const { customerId } = useParams();
   const [loading, setLoading] = useState(false);
@@ -27,7 +27,7 @@ const CustomerOrderDetails = () => {
   const initialValues = {
     branch: '',
     orderType: '',
-    date: '',
+    joining_date: null,
     search: '',
   };
   const [hiddenColumns, setHiddenColumns] = useState<any[]>([]);
@@ -35,12 +35,12 @@ const CustomerOrderDetails = () => {
   const edit = useEdit(initialValues);
 
   const customerProfileData = {
-    name: rowData?.customer_name || 'Kishor Kumar',
-    code: rowData?.customer_id || 'CID 01/24-25',
-    phone: rowData?.phone || '9658785695',
-    address: rowData?.address || '31/A, 1st Cross Street, Anna Nagar',
-    city: rowData?.city || 'Coimbatore',
-    pinCode: rowData?.pinCode || '625986',
+    name: rowData?.customer_name || '',
+    code: rowData?.customer_code || rowData?.customer_no || '',
+    phone: rowData?.mobile_number || '',
+    address: rowData?.address || '',
+    city: rowData?.district_id || '',
+    pinCode: rowData?.pin_code || '',
   };
 
   const tabsData = [
@@ -141,7 +141,7 @@ const CustomerOrderDetails = () => {
         <MUHListItemCell
           title={row.invoice_no}
           titleStyle={{ color: theme.Colors.primary }}
-          isLink={`/admin/customer/viewInvoice`}
+          isLink={`/admin/customer/viewInvoice?invoice_no=${row.invoice_no}`}
         />
       ),
     },
@@ -172,7 +172,7 @@ const CustomerOrderDetails = () => {
               mb: row.sub_products ? 0.3 : 0,
             }}
           >
-            {row.product_name}
+            {row.product_name || '-'}
           </Typography>
           {row.sub_products && (
             <Typography
@@ -268,14 +268,86 @@ const CustomerOrderDetails = () => {
     },
   ];
 
+
   const fetchOrderData = async () => {
     try {
       setLoading(true);
-      setOrderData(sampleOrderData);
+
+      const params: any = {};
+
+      if (customerId) {
+        params.customer_id = customerId;
+      }
+
+      const branchValue = edit.getValue('branch');
+      if (branchValue) {
+        params.branch_id =
+          typeof branchValue === 'object' && branchValue?.value
+            ? branchValue.value
+            : branchValue;
+      }
+
+      const orderTypeValue = edit.getValue('orderType');
+      if (orderTypeValue) {
+        const orderType =
+          typeof orderTypeValue === 'object' && orderTypeValue?.label
+            ? orderTypeValue.label
+            : orderTypeValue;
+        params.order_type = orderType;
+      }
+
+      const dateValue = edit.getValue('joining_date');
+      if (dateValue) {
+        params.invoice_date = dateValue;
+      }
+
+      const searchValue = edit.getValue('search');
+      if (searchValue) {
+        params.search = searchValue;
+      }
+
+      const response: any =
+        await API_SERVICES.InvoiceService.getSalesInvoiceBills(params);
+
+      if (response?.data?.statusCode === HTTP_STATUSES.OK) {
+        const invoices = response.data.data.invoices || [];
+
+        const transformedData = invoices.map((invoice: any, index: number) => {
+          const firstItem = invoice.invoice_items?.[0] || {};
+          const otherItemsCount =
+            invoice.invoice_items?.length > 1
+              ? invoice.invoice_items.length - 1
+              : 0;
+
+          return {
+            s_no: index + 1,
+            id: invoice.id,
+            date: invoice.invoice_date || '',
+            invoice_no: invoice.invoice_no || '',
+            product_name: firstItem.product_name_snapshot || '-',
+            sub_products: otherItemsCount > 0 ? otherItemsCount : null,
+            quantity:
+              invoice.total_quantity || invoice.total_items_quantity || 0,
+            total_amount: invoice.total_amount
+              ? typeof invoice.total_amount === 'string'
+                ? parseFloat(invoice.total_amount)
+                : invoice.total_amount
+              : 0,
+            branch: invoice.branch_name || '',
+            order_type: invoice.order_type || 'Offline',
+          };
+        });
+
+        setOrderData(transformedData);
+      } else {
+        setOrderData([]);
+        toast.error('Failed to load invoices');
+      }
     } catch (err: any) {
       setLoading(false);
       setOrderData([]);
-      console.log(err, 'err');
+      toast.error(err?.message || 'Failed to fetch invoice data');
+      console.error('Error fetching invoices:', err);
     } finally {
       setLoading(false);
     }
@@ -283,7 +355,7 @@ const CustomerOrderDetails = () => {
 
   useEffect(() => {
     fetchOrderData();
-  }, []);
+  }, [edit.edits, customerId]);
 
   return (
     <>

@@ -195,7 +195,7 @@ const BranchCustomerView = () => {
           showBackButton={false}
           currentTabVal={currentTab}
           onTabChange={handleTabChange}
-          switchTabContainerWidth="262px"
+          switchTabContainerWidth="fit-content"
         />
 
         {/* Customer Profile Card */}

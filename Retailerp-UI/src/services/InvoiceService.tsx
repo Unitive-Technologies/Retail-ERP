@@ -19,7 +19,6 @@ type loginProp = {
 };
 
 export const InvoiceService = {
-
   updateBulk: async ({ data, successMessage, failureMessage }: loginProp) => {
     const options = await apiOptions({
       url: `${Config.BASE_URL}${SERVICE_URL.INVOICE_DETAILS}/bulk`,
@@ -42,5 +41,20 @@ export const InvoiceService = {
     return apiRequest(options);
   },
 
+  getSalesInvoiceBills: async (params?: any) => {
+    const options = await apiOptions({
+      url: `${Config.BASE_URL}${SERVICE_URL.SALES_INVOICE_BILLS}`,
+      method: 'get',
+      params: params,
+    });
+    return apiRequest(options);
+  },
 
+  getSalesInvoiceBillById: async (id: number | string) => {
+    const options = await apiOptions({
+      url: `${Config.BASE_URL}${SERVICE_URL.SALES_INVOICE_BILLS}/${id}`,
+      method: 'get',
+    });
+    return apiRequest(options);
+  },
 };

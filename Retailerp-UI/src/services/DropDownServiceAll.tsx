@@ -117,6 +117,22 @@ export const DropDownServiceAll = {
     });
     return apiRequest(options);
   },
+  getOfferPlans: async (params?: any) => {
+    const options = await apiOptions({
+      url: `${Config.BASE_URL}${SERVICE_URL.OFFER_PLANS_DROPDOWN}`,
+      method: 'get',
+      params: params,
+    });
+    return apiRequest(options);
+  },
+  getOfferApplicableTypes: async (params?: any) => {
+    const options = await apiOptions({
+      url: `${Config.BASE_URL}${SERVICE_URL.OFFER_APPLICABLE_TYPES_DROPDOWN}`,
+      method: 'get',
+      params: params,
+    });
+    return apiRequest(options);
+  },
 
   getAll: async () => {
     return Promise.all([

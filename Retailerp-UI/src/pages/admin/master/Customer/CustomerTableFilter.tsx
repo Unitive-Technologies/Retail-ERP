@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import AutoSearchSelectWithLabel from '@components/AutoSearchWithLabel';
 import {
   CommonFilterAutoSearchProps,
@@ -5,6 +6,9 @@ import {
 } from '@components/CommonStyles';
 import CommonTableFilter from '@components/CommonTableFilter';
 import Grid from '@mui/material/Grid2';
+import { DropDownServiceAll } from '@services/DropDownServiceAll';
+import { HTTP_STATUSES } from '@constants/Constance';
+import toast from 'react-hot-toast';
 
 type Props = {
   selectItems: any[];
@@ -15,25 +19,14 @@ type Props = {
   isOfferPlan?: boolean;
 };
 
-export const BranchList = [
+const ModeList = [
   {
-    value: 1,
-    label: 'Silver Craft Jewels',
+    value: 'Online',
+    label: 'Online',
   },
   {
-    value: 2,
-    label: 'HKM Branch',
-  },
-];
-
-export const ModeList = [
-  {
-    value: 1,
-    label: 'online',
-  },
-  {
-    value: 2,
-    label: 'offline',
+    value: 'Offline',
+    label: 'Offline',
   },
 ];
 
@@ -44,14 +37,41 @@ const CustomerTableFilter = ({
   handleFilterClear,
   edit,
 }: Props) => {
+  const [branchOptions, setBranchOptions] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const res: any = await DropDownServiceAll.getBranches();
+        if (
+          res?.status < HTTP_STATUSES.BAD_REQUEST &&
+          Array.isArray(res?.data?.data?.branches)
+        ) {
+          const branches = res.data.data.branches.map((branch: any) => ({
+            label: branch.branch_name,
+            value: branch.branch_name,
+          }));
+          setBranchOptions(branches);
+        } else {
+          setBranchOptions([]);
+        }
+      } catch (err: any) {
+        toast.error('Failed to load branches');
+        setBranchOptions([]);
+      }
+    };
+
+    fetchBranches();
+  }, []);
+
   return (
     <Grid container sx={tableFilterContainerStyle}>
       <Grid size={1.3}>
         <AutoSearchSelectWithLabel
-          options={BranchList}
+          options={branchOptions}
           placeholder="Branch"
           value={edit?.getValue('branch')}
-          onChange={(e, value) => edit.update({ branch: value })}
+          onChange={(_e, value) => edit.update({ branch: value })}
           {...CommonFilterAutoSearchProps}
         />
       </Grid>
@@ -60,7 +80,7 @@ const CustomerTableFilter = ({
           options={ModeList}
           placeholder="Mode"
           value={edit?.getValue('mode')}
-          onChange={(e, value) => edit.update({ mode: value })}
+          onChange={(_e, value) => edit.update({ mode: value })}
           {...CommonFilterAutoSearchProps}
         />
       </Grid>

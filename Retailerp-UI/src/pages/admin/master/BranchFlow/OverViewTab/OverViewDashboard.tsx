@@ -118,7 +118,7 @@ const OverViewDashboard = () => {
         showBackButton={false}
         currentTabVal={currentTab}
         onTabChange={handleTabChange}
-        switchTabContainerWidth="262px"
+        switchTabContainerWidth="fit-content"
       />
       {selectedBranch && (
         <Grid size={{ xs: 12, md: 12 }} mt={2}>

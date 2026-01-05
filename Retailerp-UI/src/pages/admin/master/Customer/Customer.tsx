@@ -1,6 +1,6 @@
 import { contentLayout } from '@components/CommonStyles';
 import Grid from '@mui/material/Grid2';
-import { ConfirmModal, MUHTable } from '@components/index';
+import { ConfirmModal, MUHTable, ChipComponent } from '@components/index';
 import { GridColDef } from '@mui/x-data-grid';
 import { CONFIRM_MODAL, HTTP_STATUSES } from '@constants/Constance';
 import { useNavigate } from 'react-router-dom';
@@ -100,9 +100,22 @@ const Customer = () => {
       disableColumnMenu: true,
       align: 'right',
       headerAlign: 'right',
-      renderCell: ({ row }: { row: any }) => (
-        <span>₹ {row.purchase_amount?.toLocaleString()}</span>
-      ),
+      renderCell: ({ row }: { row: any }) => {
+        const amount = row.purchase_amount
+          ? typeof row.purchase_amount === 'string'
+            ? parseFloat(row.purchase_amount)
+            : row.purchase_amount
+          : 0;
+        return (
+          <span>
+            ₹{' '}
+            {amount.toLocaleString('en-IN', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </span>
+        );
+      },
     },
     {
       field: 'scheme_details',
@@ -113,7 +126,8 @@ const Customer = () => {
       align: 'center',
       headerAlign: 'center',
       renderCell: ({ row }: { row: any }) => {
-        if (row.scheme_details === 'Yes') {
+        const schemeDetails = row.scheme_details?.toString().trim();
+        if (schemeDetails === 'Yes') {
           return (
             <ChipComponent
               label="Yes"
@@ -123,6 +137,21 @@ const Customer = () => {
               style={{
                 backgroundColor: '#FFE8E8',
                 color: '#D32F2F',
+                fontWeight: 500,
+                border: 'none',
+              }}
+            />
+          );
+        } else if (schemeDetails === 'No') {
+          return (
+            <ChipComponent
+              label="No"
+              size="small"
+              variant="filled"
+              clickable={false}
+              style={{
+                backgroundColor: '#E8F5E9',
+                color: '#2E7D32',
                 fontWeight: 500,
                 border: 'none',
               }}
@@ -175,7 +204,7 @@ const Customer = () => {
         successMessage: 'Customer deleted successfully',
         failureMessage: 'Failed to delete customer',
       });
-      
+
       // Refresh the customer list
       await fetchData();
       handleCancelModal();
@@ -233,15 +262,51 @@ const Customer = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response: any = await API_SERVICES.CustomerService.getAll();
-      
+
+      const params: any = {};
+
+      const branchValue = edit.getValue('branch');
+      if (branchValue) {
+        params.branch_name =
+          typeof branchValue === 'object' && branchValue?.value
+            ? branchValue.value
+            : branchValue;
+      }
+
+      const modeValue = edit.getValue('mode');
+      if (modeValue) {
+        params.mode =
+          typeof modeValue === 'object' && modeValue?.value
+            ? modeValue.value
+            : modeValue;
+      }
+
+      const searchValue = edit.getValue('search');
+      if (searchValue) {
+        params.search = searchValue;
+      }
+
+      const response: any =
+        await API_SERVICES.CustomerListService.getAll(params);
+
       if (response?.data?.statusCode === HTTP_STATUSES.OK) {
         const customers = response.data.data.customers || [];
-        // Add serial numbers to the data
-        const customersWithSerial = customers.map((customer: any, index: number) => ({
-          ...customer,
-          s_no: index + 1,
-        }));
+        const customersWithSerial = customers.map(
+          (customer: any, index: number) => ({
+            ...customer,
+            s_no: index + 1,
+            customer_code: customer.customer_no || customer.customer_code, // Map customer_no to customer_code
+            no_of_order: customer.no_of_orders ?? customer.no_of_order,
+            mode: customer.mode ?? null,
+            branch: customer.branch ?? null,
+            purchase_amount: customer.purchase_amount
+              ? typeof customer.purchase_amount === 'string'
+                ? parseFloat(customer.purchase_amount)
+                : customer.purchase_amount
+              : 0,
+            scheme_details: customer.scheme_details ?? 'No',
+          })
+        );
         setCustomerData(customersWithSerial);
       } else {
         setCustomerData([]);
@@ -259,7 +324,7 @@ const Customer = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [edit.edits]);
 
   return (
     <>

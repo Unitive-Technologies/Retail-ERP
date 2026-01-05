@@ -1,6 +1,6 @@
 import PageHeader from '@components/PageHeader';
 import Grid from '@mui/system/Grid';
-import { useTheme } from '@mui/material';
+import { useTheme, Tooltip, Box } from '@mui/material';
 import FormAction from '@components/ProjectCommon/FormAction';
 import MUHTypography from '@components/MUHTypography';
 import {
@@ -113,6 +113,34 @@ const CreateVendor = () => {
         return val != null && val !== '';
       })
     : [];
+
+  // Helper function to format selected values for tooltip
+  const formatSelectedValues = (selectedValue: any, options: any[]): string => {
+    if (!selectedValue) return '';
+    
+    const values = Array.isArray(selectedValue) ? selectedValue : [selectedValue];
+    const labels = values
+      .map((val: any) => {
+        const value = typeof val === 'object' ? val.value : val;
+        const option = options.find((opt: any) => opt.value === value);
+        return option ? option.label : null;
+      })
+      .filter(Boolean);
+    
+    return labels.join(', ');
+  };
+
+  // Get formatted tooltip text for Material Type
+  const materialTypeTooltip = formatSelectedValues(
+    edit.getValue('material_type'),
+    materialType
+  );
+
+  // Get formatted tooltip text for Visibility
+  const visibilityTooltip = formatSelectedValues(
+    edit.getValue('visibility'),
+    visibilityOptions
+  );
 
   const mobileNoRaw = String(edit.getValue('mobile_no') || '');
   const isMobileNoInvalid =
@@ -1231,20 +1259,55 @@ const CreateVendor = () => {
               flexDirection={'row'}
               alignItems={'center'}
             >
-              <MUHSelectBoxComponent
-                selectLabel="Material Type"
-                multiple={true}
-                isSearch={true}
-                disabled={type === 'view'}
-                value={edit.getValue('material_type')}
-                onChange={(e: any) =>
-                  edit.update({ material_type: e.target.value })
-                }
-                selectItems={materialType}
-                {...commonSelectBoxProps}
-                isCheckbox={true}
-                isError={hasError(fieldError.material_type)}
-              />
+              {type === 'view' && materialTypeTooltip ? (
+                <Tooltip 
+                  title={materialTypeTooltip} 
+                  arrow 
+                  placement="bottom"
+                  PopperProps={{
+                    modifiers: [
+                      {
+                        name: 'offset',
+                        options: {
+                          offset: [0, 8],
+                        },
+                      },
+                    ],
+                  }}
+                >
+                  <Box sx={{ width: '100%', display: 'inline-block' }}>
+                    <MUHSelectBoxComponent
+                      selectLabel="Material Type"
+                      multiple={true}
+                      isSearch={true}
+                      disabled={type === 'view'}
+                      value={edit.getValue('material_type')}
+                      onChange={(e: any) =>
+                        edit.update({ material_type: e.target.value })
+                      }
+                      selectItems={materialType}
+                      {...commonSelectBoxProps}
+                      isCheckbox={true}
+                      isError={hasError(fieldError.material_type)}
+                    />
+                  </Box>
+                </Tooltip>
+              ) : (
+                <MUHSelectBoxComponent
+                  selectLabel="Material Type"
+                  multiple={true}
+                  isSearch={true}
+                  disabled={type === 'view'}
+                  value={edit.getValue('material_type')}
+                  onChange={(e: any) =>
+                    edit.update({ material_type: e.target.value })
+                  }
+                  selectItems={materialType}
+                  {...commonSelectBoxProps}
+                  isCheckbox={true}
+                  isError={hasError(fieldError.material_type)}
+                />
+              )}
             </Grid>
 
             <Grid
@@ -1254,20 +1317,55 @@ const CreateVendor = () => {
               flexDirection={'row'}
               alignItems={'center'}
             >
-              <MUHSelectBoxComponent
-                selectLabel="Visibility"
-                multiple={true}
-                isSearch={true}
-                disabled={type === 'view'}
-                value={edit.getValue('visibility')}
-                onChange={(e: any) =>
-                  edit.update({ visibility: e.target.value })
-                }
-                selectItems={visibilityOptions}
-                {...commonSelectBoxProps}
-                required={false}
-                isCheckbox={true}
-              />
+              {type === 'view' && visibilityTooltip ? (
+                <Tooltip 
+                  title={visibilityTooltip} 
+                  arrow 
+                  placement="bottom"
+                  PopperProps={{
+                    modifiers: [
+                      {
+                        name: 'offset',
+                        options: {
+                          offset: [0, 8],
+                        },
+                      },
+                    ],
+                  }}
+                >
+                  <Box sx={{ width: '100%', display: 'inline-block' }}>
+                    <MUHSelectBoxComponent
+                      selectLabel="Visibility"
+                      multiple={true}
+                      isSearch={true}
+                      disabled={type === 'view'}
+                      value={edit.getValue('visibility')}
+                      onChange={(e: any) =>
+                        edit.update({ visibility: e.target.value })
+                      }
+                      selectItems={visibilityOptions}
+                      {...commonSelectBoxProps}
+                      required={false}
+                      isCheckbox={true}
+                    />
+                  </Box>
+                </Tooltip>
+              ) : (
+                <MUHSelectBoxComponent
+                  selectLabel="Visibility"
+                  multiple={true}
+                  isSearch={true}
+                  disabled={type === 'view'}
+                  value={edit.getValue('visibility')}
+                  onChange={(e: any) =>
+                    edit.update({ visibility: e.target.value })
+                  }
+                  selectItems={visibilityOptions}
+                  {...commonSelectBoxProps}
+                  required={false}
+                  isCheckbox={true}
+                />
+              )}
             </Grid>
           </Grid>
         </Grid>

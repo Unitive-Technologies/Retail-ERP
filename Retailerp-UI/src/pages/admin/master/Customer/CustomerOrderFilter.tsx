@@ -51,7 +51,7 @@ const CustomerOrderFilter = ({
           options={BranchList}
           placeholder="Branch"
           value={edit?.getValue('branch')}
-          onChange={(e, value) => edit.update({ branch: value })}
+          onChange={(_e, value) => edit.update({ branch: value })}
           {...CommonFilterAutoSearchProps}
         />
       </Grid>
@@ -60,7 +60,7 @@ const CustomerOrderFilter = ({
           options={OrderTypeList}
           placeholder="Order Type"
           value={edit?.getValue('orderType')}
-          onChange={(e, value) => edit.update({ orderType: value })}
+          onChange={(_e, value) => edit.update({ orderType: value })}
           {...CommonFilterAutoSearchProps}
         />
       </Grid>
@@ -69,7 +69,7 @@ const CustomerOrderFilter = ({
           required
           height={28}
           placeholder="Date"
-          value={edit.getValue('joining_date')}
+          value={edit.getValue('joining_date') || null}
           handleChange={(newDate: any) =>
             edit.update({ joining_date: newDate })
           }

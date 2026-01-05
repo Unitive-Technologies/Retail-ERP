@@ -170,7 +170,7 @@ const BranchVendorView = () => {
           showBackButton={false}
           currentTabVal={currentTab}
           onTabChange={handleTabChange}
-          switchTabContainerWidth="262px"
+          switchTabContainerWidth="fit-content"
         />
 
         {/* Vendor Profile Card */}

@@ -322,7 +322,12 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
 
     // For invoice layout: show empty for refNo and description columns when they are in first 3 positions
     if (index <= 2) {
-      if (key === 'refNo' || key === 'description' || key === 'materialType' || key === 'type') {
+      if (
+        key === 'refNo' ||
+        key === 'description' ||
+        key === 'materialType' ||
+        key === 'type'
+      ) {
         return '';
       }
     }
@@ -663,7 +668,8 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
                       maxWidth: columnWidth,
                       flex: `0 0 ${columnWidth}px`,
                       textAlign: 'center',
-                      ...(key === 'amount' || keyIndex === headerOrder.length - 1
+                      ...(key === 'amount' ||
+                      keyIndex === headerOrder.length - 1
                         ? { border: 'none' }
                         : {}),
                     }}
@@ -678,7 +684,11 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
             {grnItems.map((row: GrnItem, index: number) => (
               <Grid
                 container
-                sx={{ ...tableRowStyle, width: 'max-content', flexWrap: 'nowrap' }}
+                sx={{
+                  ...tableRowStyle,
+                  width: 'max-content',
+                  flexWrap: 'nowrap',
+                }}
                 key={row.id}
               >
                 {headerOrder.map((key, keyIndex) => {
@@ -743,7 +753,8 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
                       maxWidth: columnWidth,
                       flex: `0 0 ${columnWidth}px`,
                       textAlign: 'center',
-                      ...(key === 'amount' || keyIndex === headerOrder.length - 1
+                      ...(key === 'amount' ||
+                      keyIndex === headerOrder.length - 1
                         ? { border: 'none' }
                         : {}),
                     }}
@@ -798,20 +809,6 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
                 </Typography>
               </Box>
 
-              {/* QR Code */}
-              {showQRCode && qrCodeValue && (
-                <Box sx={{ mt: 2 }}>
-                  <SimpleQRCode
-                    value={qrCodeValue}
-                    size={120}
-                    showActions={false}
-                    style={{
-                      border: 'none',
-                    }}
-                  />
-                </Box>
-              )}
-              {/* Payment Details Section */}
               {showPaymentDetails && (
                 <Box
                   sx={{
@@ -899,6 +896,19 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
                       </Box>
                     </Grid>
                   </Grid>
+                </Box>
+              )}
+
+              {showQRCode && qrCodeValue && (
+                <Box sx={{ mt: 2 }}>
+                  <SimpleQRCode
+                    value={qrCodeValue}
+                    size={120}
+                    showActions={false}
+                    style={{
+                      border: 'none',
+                    }}
+                  />
                 </Box>
               )}
 
@@ -1011,7 +1021,9 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
                       >
                         SGST
                       </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                      >
                         <Typography
                           style={{
                             fontSize: theme.MetricsSizes.small,
@@ -1056,7 +1068,9 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
                       >
                         CGST
                       </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                      >
                         <Typography
                           style={{
                             fontSize: theme.MetricsSizes.small,
@@ -1143,10 +1157,10 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
                       fontFamily: theme.fontFamily.roboto,
                     }}
                   >
-                    Round Off
+                    Discount
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                    {/* <Typography
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Typography
                       style={{
                         fontSize: theme.MetricsSizes.small,
                         fontWeight: theme.fontWeight.mediumBold,
@@ -1155,7 +1169,7 @@ const PurchaseCommonView: React.FC<PurchaseCommonViewProps> = ({
                       }}
                     >
                       {summary.discountPercentage}
-                    </Typography> */}
+                    </Typography>
                     <Typography
                       style={{
                         fontSize: theme.MetricsSizes.small,

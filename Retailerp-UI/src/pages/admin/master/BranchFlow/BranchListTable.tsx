@@ -167,7 +167,7 @@ const BranchListTable = ({
         showBackButton={false}
         currentTabVal={currentTab}
         onTabChange={handleTabChange}
-        switchTabContainerWidth="262px"
+        switchTabContainerWidth="fit-content"
       />
       <Grid container sx={contentLayout}>
         <BranchListFilter

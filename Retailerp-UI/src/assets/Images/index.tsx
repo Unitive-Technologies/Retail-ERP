@@ -220,6 +220,9 @@ import InstagramIcon2 from './InstagramIcon2.svg?react';
 import GoldEditIcon from './GoldEditIcon.svg?react';
 import LineLoginIcon from './lineLoginIcon.svg';
 import LoginLeftSideImage from './LoginLeftSideImage.svg?react';
+import DialogPrintIcon from './DialogPrintIcon.svg?react';
+import DialogDownloadIcon from './DialogDownloadIcon.svg?react';
+import  OrderIcon2 from './OrderIcon2.svg?react';
 
 export {
   // common component
@@ -262,6 +265,8 @@ export {
   YoutubeIcon2,
   FacebookIcon2,
   InstagramIcon2,
+  DialogPrintIcon,
+  DialogDownloadIcon,
   // pages
   LandingAppbarLogo,
   ProjectNameLogo,
@@ -386,6 +391,7 @@ export {
   PayrollMasterWhiteIcon,
   SchemeCartIcon,
   PinActionIcon,
+ OrderIcon2,
   //collections
   SelectedMaterialTypeIcon,
   MaterialTypeIcon,
@@ -450,5 +456,5 @@ export {
   ActiveIcon,
   InActiveIcon,
   LineLoginIcon,
-  LoginLeftSideImage
+  LoginLeftSideImage,
 };

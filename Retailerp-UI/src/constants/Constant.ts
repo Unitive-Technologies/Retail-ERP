@@ -13,7 +13,7 @@ const SERVICE_URL = {
   LIST_VARIANTS: 'api/v1/variants',
   USER_ITEMS: 'api/v1/user-items',
   CUSTOMER_ADDRESS: 'api/v1/customer-addresses',
-ORDER: 'api/v1/orders',
+  ORDER: 'api/v1/orders',
 
   VENDOR_DETAILS: 'api/v1/vendors',
   VENDOR_DETAILS_CODE: 'api/v1/vendors/code',
@@ -78,15 +78,23 @@ ORDER: 'api/v1/orders',
   // Customer
   CUSTOMER_DETAILS: 'api/v1/customers',
   CUSTOMER_DETAILS_CODE: 'api/v1/customers/code',
+  CUSTOMER_LIST: 'api/v1/customers/list',
 
   // Orders
   ORDERS: 'api/v1/orders',
+  SALES_INVOICE_BILLS: 'api/v1/sales-invoice-bills',
 
   // Holidays
   HOLIDAYS: 'api/v1/holidays',
 
   // Purchase Orders
   PURCHASE_ORDERS: 'api/v1/purchase-orders',
+
+  // Offers
+  OFFER_PLANS_DROPDOWN: 'api/v1/offer-plans/dropdown',
+  OFFER_APPLICABLE_TYPES_DROPDOWN: 'api/v1/offer-applicable-types/dropdown',
+  OFFERS_CODE: 'api/v1/offers/code',
+  OFFERS: 'api/v1/offers',
 };
 
 export { SERVICE_URL };

@@ -31,7 +31,7 @@ const BranchOverview = () => {
     branch: null,
   });
   const navigateTo = useNavigate();
-  const [selectedBranch, setSelectedBranch] = React.useState<any | null>(null);
+  const [, setSelectedBranch] = React.useState<unknown>(null);
 
   const [dateRange, setDateRange] = React.useState<
     [Date | null, Date | null] | null
@@ -83,20 +83,8 @@ const BranchOverview = () => {
     if (val === 0) navigateTo('/admin/branch/overview');
     if (val === 1) navigateTo('/admin/branch/list');
   };
-  const handleCardClick = (index: number) => {
-    console.log('Card clicked:', index);
-  };
   const handleFilterClear = () => {
     setDateRange(null);
-  };
-  const iconBox = {
-    width: '35px',
-    height: '35px',
-    borderRadius: '8px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
   };
   const customData = [
     { branch: 'Thomgesday silver', value: 28000000 },
@@ -115,7 +103,7 @@ const BranchOverview = () => {
         useSwitchTabDesign={true}
         tabContent={[
           { label: 'Branch Overview', id: 0 },
-          { label: 'Branch-Wise', id: 1 },
+          { label: 'Branch-Wise', id: 1},
         ]}
         showlistBtn={false}
         showDownloadBtn={false}
@@ -123,7 +111,7 @@ const BranchOverview = () => {
         showBackButton={false}
         currentTabVal={currentTab}
         onTabChange={handleTabChange}
-        switchTabContainerWidth="262px"
+        switchTabContainerWidth="fit-content"
       />
 
       <Grid
@@ -155,7 +143,7 @@ const BranchOverview = () => {
               options={[]}
               placeholder="Today"
               value={edit.getValue('today')}
-              onChange={(e, value) => edit.update({ today: value })}
+              onChange={(_e, value) => edit.update({ today: value })}
               {...CommonFilterAutoSearchProps}
             />
           </Box>
@@ -165,7 +153,7 @@ const BranchOverview = () => {
               options={[]}
               placeholder="Branch"
               value={edit.getValue('branch')}
-              onChange={(e, value) => edit.update({ branch: value })}
+              onChange={(_e, value) => edit.update({ branch: value })}
               {...CommonFilterAutoSearchProps}
             />
           </Box>

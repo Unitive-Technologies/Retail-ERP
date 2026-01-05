@@ -1,88 +1,344 @@
+import { useState, useEffect } from 'react';
 import { Box, Typography, IconButton } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import PurchaseCommonView from '@components/PurchaseCommonView';
-import { DownloadIconPdf, PrintOutIcon, InvoiceCloseIcon } from '@assets/Images';
+import {
+  DialogCloseIcon,
+  DialogPrintIcon,
+  DialogDownloadIcon,
+} from '@assets/Images';
+import { API_SERVICES } from '@services/index';
+import { HTTP_STATUSES } from '@constants/Constance';
+import toast from 'react-hot-toast';
+import { Loader } from '@components/index';
 
 const ViewInvoice = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const invoiceNo = searchParams.get('invoice_no');
+
+  const [loading, setLoading] = useState(true);
+  const [invoiceData, setInvoiceData] = useState<any>(null);
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const formatCurrency = (amount: number | string) => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const numberToWords = (num: number): string => {
+    const integerPart = Math.floor(Math.abs(num));
+
+    if (integerPart === 0) return 'Zero Only';
+
+    const ones = [
+      '',
+      'One',
+      'Two',
+      'Three',
+      'Four',
+      'Five',
+      'Six',
+      'Seven',
+      'Eight',
+      'Nine',
+    ];
+    const teens = [
+      'Ten',
+      'Eleven',
+      'Twelve',
+      'Thirteen',
+      'Fourteen',
+      'Fifteen',
+      'Sixteen',
+      'Seventeen',
+      'Eighteen',
+      'Nineteen',
+    ];
+    const tens = [
+      '',
+      '',
+      'Twenty',
+      'Thirty',
+      'Forty',
+      'Fifty',
+      'Sixty',
+      'Seventy',
+      'Eighty',
+      'Ninety',
+    ];
+
+    const convertHundreds = (n: number): string => {
+      n = Math.floor(n);
+      let result = '';
+
+      if (n >= 100) {
+        const hundreds = Math.floor(n / 100);
+        result += ones[hundreds] + ' Hundred ';
+        n %= 100;
+      }
+
+      if (n >= 20) {
+        const tensPlace = Math.floor(n / 10);
+        result += tens[tensPlace] + ' ';
+        n %= 10;
+      } else if (n >= 10) {
+        result += teens[n - 10] + ' ';
+        return result;
+      }
+
+      if (n > 0) {
+        result += ones[n] + ' ';
+      }
+
+      return result;
+    };
+
+    let result = '';
+    let remaining = integerPart;
+
+    const crores = Math.floor(remaining / 10000000);
+    if (crores > 0) {
+      result += convertHundreds(crores) + 'Crore ';
+      remaining %= 10000000;
+    }
+
+    const lakhs = Math.floor(remaining / 100000);
+    if (lakhs > 0) {
+      result += convertHundreds(lakhs) + 'Lakh ';
+      remaining %= 100000;
+    }
+
+    const thousandsNum = Math.floor(remaining / 1000);
+    if (thousandsNum > 0) {
+      result += convertHundreds(thousandsNum) + 'Thousand ';
+      remaining %= 1000;
+    }
+
+    if (remaining > 0) {
+      result += convertHundreds(remaining);
+    }
+
+    return result.trim() + ' Only';
+  };
+
+  const fetchInvoiceData = async () => {
+    if (!invoiceNo) {
+      toast.error('Invoice number is required');
+      navigate(-1);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response: any =
+        await API_SERVICES.InvoiceService.getSalesInvoiceBills({
+          invoice_no: invoiceNo,
+        });
+
+      if (response?.data?.statusCode === HTTP_STATUSES.OK) {
+        const invoices = response.data.data.invoices || [];
+        const invoice =
+          invoices.find((inv: any) => inv.invoice_no === invoiceNo) ||
+          invoices[0];
+
+        if (invoice && invoice.invoice_no) {
+          setInvoiceData(invoice);
+        } else {
+          toast.error('Invoice not found');
+          navigate(-1);
+        }
+      } else {
+        toast.error('Failed to load invoice');
+        navigate(-1);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to fetch invoice data');
+      navigate(-1);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInvoiceData();
+  }, [invoiceNo]);
+
+  if (loading) {
+    return <Loader />;
+  }
+
+  if (!invoiceData) {
+    return null;
+  }
 
   const companyData = {
-    address1: '74/1, W Poonurangam Rd',
-    address2: 'R S Puram',
-    city: 'Coimbatore',
-    state: 'Tamil Nadu - 641002',
-    mobile: '96545 569368',
-    gstin: '33SSSCE563AIH',
+    address1: invoiceData.branch_address || '',
+    address2: '',
+    city: invoiceData.branch_district_name || '',
+    state: `${invoiceData.branch_state_name || ''} - ${invoiceData.branch_pincode || ''}`,
+    mobile: invoiceData.branch_mobile_number || '',
+    gstin: invoiceData.branch_gst_no || '',
   };
 
   const supplierData = {
-    name: 'Mr./Ms. Kishore Kumar',
-    address1: '123/1, West street, KM Nagar',
+    name: `Mr./Ms. ${invoiceData.customer_name || ''}`,
+    address1: invoiceData.customer_address || '',
     address2: '',
-    city: 'Salem - 625869',
-    mobile: '89687 89657',
-    gst: '',
+    city: `${invoiceData.customer_district_name || ''} - ${invoiceData.customer_pincode || ''}`,
+    mobile: invoiceData.customer_mobile_number || '',
+    gst: invoiceData.customer_pan_no || '',
   };
+
+  const isSameState =
+    invoiceData.customer_state_name === invoiceData.branch_state_name;
+
+  const customerState = isSameState ? 'Tamil Nadu' : 'Different State';
 
   const grnDetails = {
-    date: '19/05/2025',
-    grnNo: 'INV 01/24-25',
-    refNo: 'HKM Branch',
+    date: invoiceData.invoice_time
+      ? `${formatDate(invoiceData.invoice_date)} ${invoiceData.invoice_time}`
+      : formatDate(invoiceData.invoice_date),
+    grnNo: invoiceData.invoice_no || '',
+    refNo: invoiceData.branch_name || '',
   };
 
-  const grnItems = [
-    {
-      id: '1',
+  const grnItems = (invoiceData.invoice_items || []).map(
+    (item: any, index: number) => ({
+      id: String(item.id || index + 1),
       material_type: '',
       category: '',
       sub_category: '',
-      description: 'Silver Ring',
+      description: item.product_name_snapshot || '',
       purity: '',
       ordered_weight: '',
       received_weight: '',
-      refNo: '71131910',
-      quantity: '1',
-      gross_weight: '10.25 g',
-      net_weight: '10.25 g',
-      rate: '110.00',
-      amount: '₹10,000',
-    },
-    {
-      id: '2',
-      material_type: '',
-      category: '',
-      sub_category: '',
-      description: 'Silver Chain',
-      purity: '',
-      ordered_weight: '',
-      received_weight: '',
-      refNo: '71131910',
-      quantity: '1',
-      gross_weight: '11.89 g',
-      net_weight: '11.89 g',
-      rate: '110.00',
-      amount: '₹11,000',
-    },
-  ];
+      refNo: item.hsn_code || '',
+      quantity: String(item.quantity || ''),
+      gross_weight: item.gross_weight ? String(item.gross_weight) : '',
+      net_weight: item.net_weight ? String(item.net_weight) : '',
+      rate: item.rate ? formatCurrency(item.rate) : '',
+      amount: item.amount ? formatCurrency(item.amount) : '',
+    })
+  );
+
+  const subtotalAmount = parseFloat(invoiceData.subtotal_amount || '0');
+  const discountAmount = parseFloat(invoiceData.discount_amount || '0');
+
+  const cgstAmountFromAPI = parseFloat(invoiceData.cgst_amount || '0');
+  const sgstAmountFromAPI = parseFloat(invoiceData.sgst_amount || '0');
+
+  const igstAmount = isSameState ? 0 : cgstAmountFromAPI + sgstAmountFromAPI;
+  const cgstPercentNum = parseFloat(invoiceData.cgst_percent || '0');
+  const sgstPercentNum = parseFloat(invoiceData.sgst_percent || '0');
+  const calculatedIgstPercent = cgstPercentNum + sgstPercentNum;
+  const igstPercent = isSameState
+    ? '0'
+    : calculatedIgstPercent > 0
+      ? String(calculatedIgstPercent)
+      : '3';
+
+  const totalAmount = parseFloat(invoiceData.total_amount || '0');
+
+  const cgstAmount = cgstAmountFromAPI;
+  const sgstAmount = sgstAmountFromAPI;
+
+  const formatPercentage = (
+    percent: string | number | null | undefined
+  ): string => {
+    if (!percent) return '0%';
+    const num = typeof percent === 'string' ? parseFloat(percent) : percent;
+    if (isNaN(num)) return '0%';
+    return `${parseFloat(num.toFixed(1))}%`;
+  };
 
   const summary = {
-    inWords: 'Twenty One Thousand Four Hundred Sixty Five Only',
-    subTotal: '₹21,000.00',
-    sgstPercentage: '1.5%',
-    sgstAmount: '₹290.00',
-    cgstPercentage: '1.5%',
-    cgstAmount: '₹290.00',
-    discountPercentage: '2%',
-    discountAmount: '₹115.00',
-    totalAmount: '₹21,465.00',
+    inWords: invoiceData.amount_in_words || numberToWords(totalAmount),
+    subTotal: formatCurrency(subtotalAmount),
+    sgstPercentage: isSameState
+      ? formatPercentage(invoiceData.sgst_percent)
+      : formatPercentage(igstPercent),
+    sgstAmount: isSameState
+      ? formatCurrency(sgstAmount)
+      : formatCurrency(igstAmount),
+    cgstPercentage: formatPercentage(invoiceData.cgst_percent),
+    cgstAmount: formatCurrency(cgstAmount),
+    discountPercentage: (() => {
+      if (invoiceData.discount_percent) {
+        return formatPercentage(invoiceData.discount_percent);
+      }
+      if (
+        invoiceData.discount_type === 'Percentage' &&
+        invoiceData.discount_amount &&
+        subtotalAmount > 0
+      ) {
+        const calculatedPercent = (discountAmount / subtotalAmount) * 100;
+        return formatPercentage(calculatedPercent);
+      }
+      if (
+        invoiceData.discount_type === 'Fixed' &&
+        invoiceData.discount_amount &&
+        subtotalAmount > 0
+      ) {
+        const calculatedPercent = (discountAmount / subtotalAmount) * 100;
+        return formatPercentage(calculatedPercent);
+      }
+      return '0%';
+    })(),
+    discountAmount: formatCurrency(discountAmount),
+    totalAmount: formatCurrency(totalAmount),
     totalReceivedWeight: '',
     totalOrderedWeight: '',
-    totalQuantity: '2',
-    totalGrossWeight: '22.35 g',
-    totalNetWeight: '22.35 g',
+    totalQuantity: String(
+      invoiceData.total_quantity || invoiceData.total_items_quantity || '0'
+    ),
+    totalGrossWeight: '',
+    totalNetWeight: '',
   };
 
   const remarks = '';
+
+  const paymentDetailsArray = invoiceData.payment_details || [];
+
+  let cardAmount = 0;
+  let cashAmount = 0;
+  let upiAmount = 0;
+  const transactionIds: string[] = [];
+
+  paymentDetailsArray.forEach((payment: any) => {
+    const amount = parseFloat(payment.amount_received || '0');
+    const paymentMode = (payment.payment_mode || '').toLowerCase();
+
+    if (paymentMode === 'card') {
+      cardAmount += amount;
+    } else if (paymentMode === 'cash') {
+      cashAmount += amount;
+    } else if (paymentMode === 'upi') {
+      upiAmount += amount;
+    }
+
+    const transactionId = payment.transaction_id || payment.transactionId;
+    if (
+      transactionId !== null &&
+      transactionId !== undefined &&
+      String(transactionId).trim() !== ''
+    ) {
+      transactionIds.push(String(transactionId).trim());
+    }
+  });
+
+  const transactionNo =
+    transactionIds.length > 0 ? transactionIds.join(', ') : '';
+
+  const hasPaymentData = true;
 
   const handleDownload = () => {
     window.print();
@@ -109,7 +365,7 @@ const ViewInvoice = () => {
       <Box
         sx={{
           width: '100%',
-          backgroundColor: '#471923',
+          // backgroundColor: '#471923',
           height: '40px',
           display: 'flex',
           justifyContent: 'space-between',
@@ -120,10 +376,10 @@ const ViewInvoice = () => {
         }}
       >
         <Typography
-          sx={{
-            color: '#FFFFFF',
-            fontSize: '14px',
-            fontWeight: 500,
+          style={{
+            color: '#000000',
+            fontSize: '18px',
+            fontWeight: 600,
             textDecoration: 'underline',
             cursor: 'pointer',
           }}
@@ -143,7 +399,7 @@ const ViewInvoice = () => {
               },
             }}
           >
-            <img src={DownloadIconPdf} width={20} height={20} alt="Download" />
+            <DialogDownloadIcon />
           </IconButton>
           <IconButton
             onClick={handlePrint}
@@ -157,7 +413,7 @@ const ViewInvoice = () => {
               },
             }}
           >
-            <img src={PrintOutIcon} width={18} height={18} alt="Print" />
+            <DialogPrintIcon />
           </IconButton>
           <IconButton
             onClick={handleClose}
@@ -171,7 +427,7 @@ const ViewInvoice = () => {
               },
             }}
           >
-            <InvoiceCloseIcon style={{ width: 20, height: 20 }} />
+            <DialogCloseIcon />
           </IconButton>
         </Box>
       </Box>
@@ -189,11 +445,12 @@ const ViewInvoice = () => {
         grnNoLabel="Invoice No"
         refNoLabel="Branch"
         showRefNo={true}
-        showPaymentDetails={true}
-        cardAmount={10000}
-        cashAmount={11000}
-        upiAmount={0}
-        transactionNo="UID525522212DDFD22225"
+        showPaymentDetails={hasPaymentData}
+        cardAmount={cardAmount}
+        cashAmount={cashAmount}
+        upiAmount={upiAmount}
+        transactionNo={transactionNo}
+        state={customerState}
         showAddress2={false}
         showRemarks={false}
         tableHeaders={{
@@ -206,16 +463,25 @@ const ViewInvoice = () => {
           rate: 'Rate',
           amount: 'Amount',
         }}
-        headerOrder={['sno', 'refNo', 'description', 'quantity', 'grossWeight', 'netWeight', 'rate', 'amount']}
+        headerOrder={[
+          'sno',
+          'refNo',
+          'description',
+          'quantity',
+          'grossWeight',
+          'netWeight',
+          'rate',
+          'amount',
+        ]}
         columnSizes={{
-          sno: 0.5,
-          refNo: 0.9,
-          description: 1.2,
-          quantity: 0.7,
-          grossWeight: 0.9,
-          netWeight: 0.9,
-          rate: 0.8,
-          amount: 1.0,
+          sno: 0.89,
+          refNo: 1.2,
+          description: 1.8,
+          quantity: 1.2,
+          grossWeight: 1.2,
+          netWeight: 1.2,
+          rate: 1.5,
+          amount: 1.5,
         }}
         showQRCode={true}
         qrCodeValue={`Invoice: ${grnDetails.grnNo}\nAmount: ${summary.totalAmount}\nDate: ${grnDetails.date}`}
