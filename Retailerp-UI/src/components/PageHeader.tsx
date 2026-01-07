@@ -79,7 +79,7 @@ const PageHeader = ({
   currentTabVal,
   onTabChange,
   useSwitchTabDesign = false,
-  switchTabContainerWidth = '262px',
+  switchTabContainerWidth = 'fit-content',
   handleCloseClick,
   listBtnName = null,
   onDownloadClick,
@@ -158,8 +158,9 @@ const PageHeader = ({
                 border: '1px solid #D0D0D0',
                 borderRadius: '8px',
                 padding: '4px',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
+                flexShrink: 0,
               }}
             >
               <Tabs
@@ -167,6 +168,7 @@ const PageHeader = ({
                 onChange={handleSwitchTabChange}
                 TabIndicatorProps={{ style: { display: 'none' } }}
                 sx={{
+                  width: 'fit-content',
                   minHeight: '27px',
                   '& .MuiTabs-flexContainer': {
                     gap: '8px',

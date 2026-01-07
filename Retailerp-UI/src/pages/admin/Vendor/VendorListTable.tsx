@@ -125,7 +125,7 @@ const VendorListTable = () => {
   const navigateTo = useNavigate();
   const location = useLocation();
   const [currentTab, setCurrentTab] = React.useState<number | string>(
-    location.pathname.includes('branchWise') ? 1 : 0
+    location.pathname.includes('vendorListTable') ? 1 : 0
   );
   const [vendorList, setVendorList] = useState<any[]>(dummyVendorData);
   const [confirmModalOpen, setconfirmModalOpen] = useState({ open: false });
@@ -371,7 +371,7 @@ const VendorListTable = () => {
               navigateTo('/admin/vendorOverview/vendorListTable');
             }
           }}
-          switchTabContainerWidth="262px"
+          switchTabContainerWidth="fit-content"
         />
 
         <Grid container sx={contentLayout}>

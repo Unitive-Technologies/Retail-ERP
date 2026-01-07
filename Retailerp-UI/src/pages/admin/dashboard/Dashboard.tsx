@@ -245,8 +245,10 @@ const Dashboard = () => {
           style={{
             fontWeight: 600,
             fontSize: '18px',
-            marginBottom: 8,
             color: theme.Colors.black,
+            paddingBottom: 8,
+            marginBottom: 16,
+            borderBottom: '1px solid #E4E4E4',
           }}
         >
           OVERALL STATES

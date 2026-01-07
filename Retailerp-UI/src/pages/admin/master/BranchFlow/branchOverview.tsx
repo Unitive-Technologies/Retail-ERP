@@ -158,7 +158,7 @@ const BranchOverview = () => {
             />
           </Box>
 
-          <Box sx={{ width: '240px' }}>
+          <Box sx={{ width: '220px' }}>
             <MUHDateRangePicker
               value={dateRange}
               onChange={setDateRange}
@@ -170,8 +170,8 @@ const BranchOverview = () => {
 
           <Box
             sx={{
-              width: 35,
-              height: 35,
+              width: 28,
+              height: 28,
               borderRadius: '8px',
               display: 'flex',
               alignItems: 'center',

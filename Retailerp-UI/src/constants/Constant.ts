@@ -27,6 +27,10 @@ const SERVICE_URL = {
   PRODUCT_ADDON: 'api/v1/product-addons',
   PRODUCT_VARIANT_BULK: 'api/v1/product-variants/bulk',
   PRODUCT_GRN_INFOS: 'api/v1/product-grn-infos',
+  PRODUCT_DELETE: 'api/v1/products/deleted',
+  PRODUCT_STOCK_IN_HANDS: 'api/v1/products/list-details?stock=stock_in_hand',
+  PRODUCT_OUT_OF_STOCK: 'api/v1/products/list-details?stock=out_of_stock',
+  PRODUCT_COUNT: 'api/v1/products/stock/counts',
 
   //Scheme Master
   SCHEME_MASTER: 'api/v1/schemes',

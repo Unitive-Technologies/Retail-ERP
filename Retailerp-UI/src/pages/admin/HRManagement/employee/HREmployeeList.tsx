@@ -52,7 +52,7 @@ const HrEmployeeList = () => {
     {
       img: InActiveStatusIcon,
       img2: InActiveStatusIcon,
-      title: 'In Active',
+      title: 'Inactive',
       value: 2,
       activeTab: activeTab,
     },
@@ -145,7 +145,7 @@ const HrEmployeeList = () => {
     },
     {
       field: 'employee_type',
-      headerName: 'Employee Type',
+      headerName: 'Employment Type',
       flex: 1.1,
       sortable: false,
       disableColumnMenu: true,
@@ -229,6 +229,7 @@ const HrEmployeeList = () => {
       <PageHeader
         title="EMPLOYEE"
         count={employeeData.length}
+        titleStyle={{ color: theme.Colors.black }}
         showCreateBtn={false}
         navigateUrl="/admin/hr/employee"
       />

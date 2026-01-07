@@ -10,13 +10,12 @@ import {
 } from '@assets/Images/AdminImages';
 import { TabComponent } from '@components/index';
 import { useState } from 'react';
-import { useTheme } from '@mui/material';
+import { Box, useTheme } from '@mui/material';
 import BankDetails from '@pages/admin/common/BankDetails';
 import LoginDetails from '@pages/admin/common/LoginDetails';
 import KYCDetails from '@pages/admin/common/KYCDetails';
 import PreviousExp from './PreviousExp';
 import ContactDetails from './ContactDetails';
-import Grid from '@mui/material/Grid2';
 import { ContactSelectIcon, ContactUnselectIcon } from '@assets/Images';
 
 type Props = {
@@ -86,7 +85,11 @@ const EmployeeTabDetails = ({
       label: 'KYC Details',
       tabIcon: KycUnSelectedImages,
       activeIcon: KycSelectedImages,
-      content: () => <KYCDetails edit={edit} type={type} />,
+      content: () => (
+        <Box sx={{ width: '100%' }}>
+          <KYCDetails edit={edit} type={type} />
+        </Box>
+      ),
       id: 3,
     },
     {
@@ -94,12 +97,14 @@ const EmployeeTabDetails = ({
       tabIcon: Account,
       activeIcon: AccountSelected,
       content: () => (
-        <LoginDetails
-          edit={edit}
-          isError={isError}
-          fieldErrors={loginDetailsFieldErrors}
-          type={type}
-        />
+        <Box sx={{ width: '100%' }}>
+          <LoginDetails
+            edit={edit}
+            isError={isError}
+            fieldErrors={loginDetailsFieldErrors}
+            type={type}
+          />
+        </Box>
       ),
       id: 4,
     },

@@ -30,8 +30,16 @@ const ProductTableFilter = ({
     materialTypes: [] as any[],
     categories: [] as any[],
     subcategories: [] as any[],
+    branch: [] as any[],
+    grns: [] as any[],
   });
 
+  // Ref No dummy data
+  const dummyRefNoData = [
+    { value: 'GRN035/01', label: 'GRN035/01' },
+    { value: 'GRN035/02', label: 'GRN035/02' },
+    { value: 'GRN036/01', label: 'GRN036/01' },
+  ];
   const mapToOption = (arr: any[], labelKey: string, valueKey: string) =>
     arr?.map((item) => ({
       label: item[labelKey],
@@ -55,9 +63,9 @@ const ProductTableFilter = ({
     }
   };
 
-  useEffect(() => {
-    fetchMaterialTypes();
-  }, []);
+  // useEffect(() => {
+  //   fetchMaterialTypes();
+  // }, []);
 
   const handleMaterialTypeChange = async (e: any, value: any) => {
     edit.update({
@@ -129,12 +137,50 @@ const ProductTableFilter = ({
       }));
     }
   };
+  const fetchBranches = async () => {
+    try {
+      const res: any = await DropDownServiceAll.getBranches();
+
+      const branch = mapToOption(
+        res?.data?.data?.branches || [],
+        'branch_name',
+        'id'
+      );
+
+      setDropdownData((prev) => ({
+        ...prev,
+        branch,
+      }));
+    } catch (err) {
+      console.error('Error fetching branches', err);
+    }
+  };
+  const fetchGrns = async () => {
+    try {
+      const res: any = await DropDownServiceAll.getGrns();
+
+      const grns = mapToOption(res?.data?.data?.grns || [], 'grn_no', 'id');
+
+      setDropdownData((prev) => ({
+        ...prev,
+        grns,
+      }));
+    } catch (err) {
+      console.error('Error fetching GRNs', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchMaterialTypes();
+    fetchBranches();
+    fetchGrns();
+  }, []);
 
   return (
     <Grid container sx={tableFilterContainerStyle}>
       {!isViewSummary ? (
         <>
-          <Grid size={1.6}>
+          <Grid size={1.4}>
             <AutoSearchSelectWithLabel
               options={dropdownData.materialTypes}
               placeholder="Material Type"
@@ -143,7 +189,7 @@ const ProductTableFilter = ({
               {...CommonFilterAutoSearchProps}
             />
           </Grid>
-          <Grid size={1.6}>
+          <Grid size={1.3}>
             <AutoSearchSelectWithLabel
               options={dropdownData.categories}
               placeholder="Category"
@@ -152,12 +198,40 @@ const ProductTableFilter = ({
               {...CommonFilterAutoSearchProps}
             />
           </Grid>
-          <Grid size={1.6}>
+          <Grid size={1.4}>
             <AutoSearchSelectWithLabel
               options={dropdownData.subcategories}
               placeholder="Sub Category"
               value={edit?.getValue('subcategory_id')}
               onChange={(e, value) => edit.update({ subcategory_id: value })}
+              {...CommonFilterAutoSearchProps}
+            />
+          </Grid>
+          <Grid size={1.4}>
+            <AutoSearchSelectWithLabel
+              options={dropdownData.branch}
+              placeholder="Branch"
+              value={edit?.getValue('branch_id')}
+              onChange={(_e, value) => edit.update({ branch_id: value })}
+              {...CommonFilterAutoSearchProps}
+            />
+          </Grid>
+          <Grid size={1.4}>
+            <AutoSearchSelectWithLabel
+              options={dropdownData.grns}
+              placeholder="GRN No."
+              value={edit?.getValue('grn_no')}
+              onChange={(_e, value) => edit.update({ grn_no: value })}
+              {...CommonFilterAutoSearchProps}
+            />
+          </Grid>
+
+          <Grid size={1.4}>
+            <AutoSearchSelectWithLabel
+              options={dummyRefNoData}
+              placeholder="Ref No."
+              value={edit?.getValue('ref_no')}
+              onChange={(e, value) => edit.update({ ref_no: value })}
               {...CommonFilterAutoSearchProps}
             />
           </Grid>

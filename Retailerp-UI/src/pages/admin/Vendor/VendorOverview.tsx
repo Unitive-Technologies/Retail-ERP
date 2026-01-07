@@ -90,7 +90,7 @@ const topBuyingCategories = [
   { category: 'Bangles', value: 35 },
   { category: 'Necklace', value: 18 },
 ];
-export const transactionHistoryDummy = [
+const transactionHistoryDummy = [
   {
     id: 1,
     s_no: 1,
@@ -175,7 +175,7 @@ const VendorOverview = () => {
   const [currentTab, setCurrentTab] = React.useState<number | string>(
     location.pathname.includes('branchWise') ? 1 : 0
   );
-  const [tableData, setTableData] = useState<object[]>(transactionHistoryDummy);
+  const [tableData] = useState<object[]>(transactionHistoryDummy);
   const handleClear = () => {
     const todayDate = new Date();
     setDateRange([todayDate, todayDate]);
@@ -381,7 +381,7 @@ const VendorOverview = () => {
             navigateTo('/admin/vendorOverview/vendorListTable');
           }
         }}
-        switchTabContainerWidth="262px"
+        switchTabContainerWidth="fit-content"
       />
       <Box
         sx={{

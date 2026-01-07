@@ -190,7 +190,9 @@ const Overview = () => {
       activeTab,
     },
   ];
-  const [currentTab, setCurrentTab] = React.useState<number | string>(0);
+  const [currentTab, setCurrentTab] = React.useState<number | string>(
+    location.pathname.includes('vendorListTable') ? 1 : 0
+  );
   const { rowData } = location.state || {};
   const vendorProfileData = {
     name: rowData?.branch_name || 'Golden Hub Pvt.,Ltd.,',
@@ -228,12 +230,12 @@ const Overview = () => {
           setCurrentTab(val);
 
           if (val === 0 && currentTab !== 0) {
-            navigateTo('/admin/stock');
+            navigateTo('/admin/vendorOverview');
           } else if (val === 1 && currentTab !== 1) {
-            navigateTo('/admin/stock/branchWise');
+            navigateTo('/admin/vendorOverview/vendorListTable');
           }
         }}
-        switchTabContainerWidth="262px"
+        switchTabContainerWidth="fit-content"
       />
       {/* PROFILE CARD */}
       <Grid size={12}>

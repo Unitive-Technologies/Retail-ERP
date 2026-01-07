@@ -31,7 +31,7 @@ interface RowData {
   location: string;
 }
 
-const PreviousExp = ({ edit, isError, fieldErrors, type }: Props) => {
+const PreviousExp = ({ edit, isError, type }: Props) => {
   const theme = useTheme();
   const isReadOnly = type === 'view'; // Determine if read-only
 
@@ -62,25 +62,6 @@ const PreviousExp = ({ edit, isError, fieldErrors, type }: Props) => {
       location: '',
     },
   ];
-
-  const hasError = (specificError: boolean) => isError && specificError;
-
-  // Helper function to parse date string to Date object
-  const parseDate = (dateValue: any): Date | null => {
-    if (!dateValue) return null;
-    if (dateValue instanceof Date) return dateValue;
-
-    // Handle dayjs objects
-    if (dateValue && typeof dateValue === 'object' && dateValue.$d) {
-      return dateValue.$d instanceof Date ? dateValue.$d : dateValue.toDate();
-    }
-
-    if (typeof dateValue === 'string') {
-      const date = new Date(dateValue);
-      return isNaN(date.getTime()) ? null : date;
-    }
-    return null;
-  };
 
   // Helper function to format date to YYYY-MM-DD in local timezone (not UTC)
   const formatDateToLocalString = (date: Date | null): string | null => {
@@ -215,27 +196,17 @@ const PreviousExp = ({ edit, isError, fieldErrors, type }: Props) => {
   const displayRows = rows.length > 0 ? rows : isReadOnly ? [] : defaultRow;
 
   return (
-    <Grid width={'100%'} pb={2} sx={formLayoutStyle}>
+    <Grid pb={2} sx={formLayoutStyle}>
       <Grid container sx={tableColumnStyle}>
-        <Grid sx={columnCellStyle} size={1}>
-          S.No
-        </Grid>
-        <Grid sx={columnCellStyle} size={3}>
-          Organization Name
-        </Grid>
-        <Grid sx={columnCellStyle} size={2}>
-          Role
-        </Grid>
-        <Grid sx={columnCellStyle} size={3}>
-          Duration
-        </Grid>
-        <Grid sx={columnCellStyle} size={2}>
-          Location
-        </Grid>
-        <Grid sx={{ ...columnCellStyle, border: 'none' }} size={1}>
-          {!isReadOnly && 'Action'} {/* Hide Action header in view mode */}
-        </Grid>
-      </Grid>
+  <Grid size={1} sx={columnCellStyle}>S.No</Grid>
+  <Grid size={3} sx={columnCellStyle}>Organization Name</Grid>
+  <Grid size={2} sx={columnCellStyle}>Role</Grid>
+  <Grid size={3} sx={columnCellStyle}>Duration</Grid>
+  <Grid size={2} sx={columnCellStyle}>Location</Grid>
+  <Grid size={1} sx={{ ...columnCellStyle, border: 'none' }}>
+    {!isReadOnly && 'Action'}
+  </Grid>
+</Grid>
 
       {displayRows.map((row: RowData, index: number) => (
         <Grid container sx={tableRowStyle} key={row.id}>
@@ -291,6 +262,7 @@ const PreviousExp = ({ edit, isError, fieldErrors, type }: Props) => {
               placeholder="DD/MM/YYYY - DD/MM/YYYY"
               isError={getFieldError(row.id, 'duration_from')}
               disabled={isReadOnly}
+              variant="table"
               maxDate={new Date(new Date().setDate(new Date().getDate() - 1))}
             />
           </Grid>

@@ -2,10 +2,20 @@ import { contentLayout } from '@components/CommonStyles';
 import Grid from '@mui/material/Grid2';
 import ProductTableFilter from './ProductTableFilter';
 import { ConfirmModal } from '@components/index';
-import { CONFIRM_MODAL, HTTP_STATUSES, VARIATION_TYPE } from '@constants/Constance';
+import {
+  CONFIRM_MODAL,
+  HTTP_STATUSES,
+  VARIATION_TYPE,
+} from '@constants/Constance';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { DeleteOutlinedIcon, RowEditIcon, RowViewIcon } from '@assets/Images';
+import {
+  DeleteOutlinedIcon,
+  PendingIcon,
+  RowEditIcon,
+  RowViewIcon,
+  SoldOutIcon,
+} from '@assets/Images';
 import PageHeader from '@components/PageHeader';
 import toast from 'react-hot-toast';
 import { useEdit } from '@hooks/useEdit';
@@ -18,10 +28,15 @@ import {
   PRODUCT_LIST_COLUMN_MAPPING,
   PRODUCT_LIST_PDF_HEADERS,
 } from '@constants/PdfConstants';
+import StatusCard from '@components/StatusCard';
+import { useTheme } from '@mui/material';
+import { InActiveStatusIcon } from '@assets/Images/AdminImages';
 
 const ProductList = () => {
   const navigateTo = useNavigate();
+  const theme = useTheme();
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<number>(0);
   const [confirmModalOpen, setConfirmModalOpen] = useState({ open: false });
   const [productData, setProductData] = useState<object[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -29,8 +44,40 @@ const ProductList = () => {
   const [pageLimit, setPageLimit] = useState(10);
   const [hiddenColumns, setHiddenColumns] = useState<any[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<any[]>([]);
-  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [cardCounts, setCardCounts] = useState({
+    stockInHand: 0,
+    stockQty: 0,
+    deleted: 0,
+    soldOut: 0,
+  });
 
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const card = [
+    {
+      img: InActiveStatusIcon,
+      img2: InActiveStatusIcon,
+      title: 'Stock In Hand',
+
+      value: cardCounts.stockInHand,
+
+      qty: cardCounts.stockQty,
+      activeTab: activeTab,
+    },
+    {
+      img: PendingIcon,
+      img2: PendingIcon,
+      title: 'Deleted Products',
+      value: cardCounts.deleted,
+      activeTab: activeTab,
+    },
+    {
+      img: SoldOutIcon,
+      img2: SoldOutIcon,
+      title: 'Sold Out',
+      value: cardCounts.soldOut,
+      activeTab: activeTab,
+    },
+  ];
   const initialValues = {
     material_type_id: '',
     category_id: '',
@@ -44,8 +91,11 @@ const ProductList = () => {
   const columns = [
     { field: 'expand', headerName: '' },
     { field: 's_no', headerName: 'S.No' },
+    { field: 'branch_name', headerName: 'Branch' },
+    { field: 'grn_no', headerName: 'GRN No.' },
+    { field: 'ref_no_id', headerName: 'Ref No.' },
     { field: 'sku_id', headerName: 'SKU ID' },
-    { field: 'hsn_code', headerName: 'HSN Code' },
+    // { field: 'hsn_code', headerName: 'HSN Code' },
     { field: 'product_name', headerName: 'Product Name' },
     { field: 'purity', headerName: 'Purity' },
     { field: 'variation', headerName: 'Variation' },
@@ -56,6 +106,21 @@ const ProductList = () => {
 
   const handleCustomizeColumn = (hiddenColumns: string[]) => {
     setHiddenColumns([...hiddenColumns]);
+  };
+
+  const onclickActiveTab = (index: number) => {
+    setActiveTab(index);
+    setCurrentPage(1);
+  };
+  const calculateTotals = (details: any[] = []) => {
+    return details.reduce(
+      (acc, curr) => {
+        acc.total_quantity += Number(curr.quantity || 0);
+        acc.total_weight += Number(curr.net_weight || 0);
+        return acc;
+      },
+      { total_quantity: 0, total_weight: 0 }
+    );
   };
 
   const handleSelectValue = (item: { headerName: never }) => {
@@ -145,56 +210,29 @@ const ProductList = () => {
     ];
   };
 
-  const fetchData = async () => {
+  const fetchProductCounts = async () => {
     try {
-      setLoading(true);
-      setProductData([]);
+      const response: any = await API_SERVICES.ProductListCountService.getAll();
 
-      const params: any = {
-        page: currentPage,
-        limit: pageLimit,
-      };
-      const materialTypeId = edit.getValue('material_type_id')?.value;
-      const categoryId = edit.getValue('category_id')?.value;
-      const subcategoryId = edit.getValue('subcategory_id')?.value;
-      const search = edit.getValue('search');
-
-      if (materialTypeId) {
-        params.material_type_id = materialTypeId;
-      }
-      if (categoryId) {
-        params.category_id = categoryId;
-      }
-      if (subcategoryId) {
-        params.subcategory_id = subcategoryId;
-      }
-      if (search) {
-        params.search = search;
-      }
-
-      const response: any = await API_SERVICES.ProductService.getAll(params);
       if (response?.data?.statusCode === HTTP_STATUSES.OK) {
-        const products = response?.data?.data?.products ?? [];
-        const pagination = response?.data?.data?.pagination;
-        const total = pagination?.total ?? products.length;
-        
-        // Calculate s_no based on current page
-        const startIndex = (currentPage - 1) * pageLimit;
-        for (let i = 0; i < products?.length; i++) {
-          products[i].s_no = startIndex + i + 1;
-        }
-        
-        setProductData(products);
-        setTotalCount(total);
+        const data = response?.data?.data;
+
+        setCardCounts({
+          stockInHand: data?.stockInHand?.productCount ?? 0,
+          stockQty: data?.stockInHand?.totalQuantity ?? 0, // ✅ FIX HERE
+          deleted: data?.deleted ?? 0,
+          soldOut: data?.soldOut ?? 0,
+        });
       }
-    } catch (err: any) {
-      setLoading(false);
-      toast.error(err?.message);
-      console.log(err, 'err');
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      toast.error('Unable to load product counts');
+      console.error(error);
     }
   };
+
+  useEffect(() => {
+    fetchProductCounts();
+  }, []);
 
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when filters change
@@ -205,9 +243,115 @@ const ProductList = () => {
     debouncedSearch,
   ]);
 
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setProductData([]);
+
+      const params: any = {
+        page: currentPage,
+        limit: pageLimit,
+      };
+
+      const materialTypeId = edit.getValue('material_type_id')?.value;
+      const categoryId = edit.getValue('category_id')?.value;
+      const subcategoryId = edit.getValue('subcategory_id')?.value;
+      const search = edit.getValue('search');
+
+      if (materialTypeId) params.material_type_id = materialTypeId;
+      if (categoryId) params.category_id = categoryId;
+      if (subcategoryId) params.subcategory_id = subcategoryId;
+      if (search) params.search = search;
+
+      let response: any;
+
+      // ---------------- API Call by Tab ----------------
+      switch (activeTab) {
+        case 1: // Deleted Products
+          response = await API_SERVICES.ProductDeleteService.getAll(params);
+          break;
+
+        case 2: // Sold Out
+          response = await API_SERVICES.ProductSoldOutService.getAll(params);
+          break;
+
+        default: // Stock In Hand
+          response =
+            await API_SERVICES.ProductStockInHandsService.getAll(params);
+          break;
+      }
+
+      if (response?.data?.statusCode === HTTP_STATUSES.OK) {
+        const products = response?.data?.data?.products ?? [];
+        console.log('Sold Out API response:', products);
+        const pagination = response?.data?.data?.pagination;
+        const total = pagination?.total ?? products.length;
+
+        const startIndex = (currentPage - 1) * pageLimit;
+
+        // ---------------- Data Mapping ----------------
+        const mappedProducts = products.map((item: any, index: number) => {
+          let details: any[] = [];
+
+          // ✅ Deleted / Sold Out (item_details)
+          if (
+            Array.isArray(item.item_details) &&
+            item.item_details.length > 0
+          ) {
+            details = item.item_details.map((i: any, idx: number) => ({
+              ...i,
+              id: i.id || idx + Math.random(),
+            }));
+          }
+
+          // ✅ Stock In Hand (variations)
+          else if (activeTab === 0 && Array.isArray(item.variations)) {
+            details = item.variations.map((v: any, idx: number) => ({
+              // id: v.id || idx + Math.random(),
+              id: v.id || `${item.id}-${idx}`,
+              branch_name: item.branch_name,
+              sku_id: v.sku_id || '-',
+              product_name: item.product_name || '-',
+              quantity: v.quantity ?? 0,
+              weight: v.weight ?? 0,
+              purity: item.purity || '-',
+              variation: v.variation_name || 'NA',
+            }));
+          }
+
+          // ---------------- Totals Calculation ----------------
+          const { total_quantity, total_weight } =
+            activeTab === 1 || activeTab === 2
+              ? calculateTotals(details)
+              : {
+                  total_quantity: item.total_quantity ?? 0,
+                  total_weight: item.total_weight ?? 0,
+                };
+
+          return {
+            ...item,
+            s_no: startIndex + index + 1,
+            itemDetails: details,
+            total_quantity,
+            total_weight: total_weight,
+          };
+        });
+
+        setProductData(mappedProducts);
+        setTotalCount(total);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Something went wrong');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, [
+    activeTab,
     edit.getValue('material_type_id'),
     edit.getValue('category_id'),
     edit.getValue('subcategory_id'),
@@ -258,15 +402,19 @@ const ProductList = () => {
 
   return (
     <>
-      <PageHeader
-        title="Product list"
-        count={totalCount}
-        btnName="Create Product"
-        navigateUrl="/admin/master/product/form?type=create"
-        showDownloadBtn={true}
-        onDownloadClick={handleOpenDownloadMenu}
-        onPrintClick={() => window.print()}
-      />
+      <Grid container spacing={2}>
+        <PageHeader
+          title="Product list"
+          titleStyle={{ color: theme.Colors.black }}
+          count={totalCount}
+          btnName="Create Product"
+          navigateUrl="/admin/master/product/form?type=create"
+          showDownloadBtn={true}
+          onDownloadClick={handleOpenDownloadMenu}
+          onPrintClick={() => window.print()}
+        />
+        <StatusCard data={card} onClickCard={onclickActiveTab} />
+      </Grid>
       <Grid container sx={contentLayout} className="print-area">
         {/* Print heading */}
         <div className="print-only" style={{ width: '100%', marginBottom: 12 }}>

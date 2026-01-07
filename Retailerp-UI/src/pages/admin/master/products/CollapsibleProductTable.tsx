@@ -80,7 +80,7 @@ const CollapsibleProductTable: React.FC<CollapsibleProductTableProps> = ({
     expand: 30,
     s_no: 50,
     sku_id: 120,
-    hsn_code: 110,
+    branch_name: 110,
     product_name: 200,
     purity: 100,
     variation: 90,
@@ -186,12 +186,15 @@ const CollapsibleProductTable: React.FC<CollapsibleProductTableProps> = ({
 
   const renderCellContent = (field: string, row: any) => {
     switch (field) {
+      case 'branch_name':
+        const branchName = row.branch_name || '-';
+        return wrapWithTooltip(branchName, branchName);
       case 'sku_id':
         const skuId = row.sku_id || '-';
         return wrapWithTooltip(skuId, skuId);
-      case 'hsn_code':
-        const hsnCode = row.hsn_code || '-';
-        return wrapWithTooltip(hsnCode, hsnCode);
+      // case 'hsn_code':
+      //   const hsnCode = row.hsn_code || '-';
+      //   return wrapWithTooltip(hsnCode, hsnCode);
       case 'product_name':
         const productName = row.product_name || '-';
         return (
@@ -284,12 +287,15 @@ const CollapsibleProductTable: React.FC<CollapsibleProductTableProps> = ({
 
   const renderChildCellContent = (field: string, child: any, parent: any) => {
     switch (field) {
+      case 'branch_name':
+        const parentbranchName = parent.branch_name || '-';
+        return wrapWithTooltip(parentbranchName, parentbranchName);
       case 'sku_id':
         const childSkuId = child.sku_id || '-';
         return wrapWithTooltip(childSkuId, childSkuId);
-      case 'hsn_code':
-        const parentHsnCode = parent.hsn_code || '-';
-        return wrapWithTooltip(parentHsnCode, parentHsnCode);
+      // case 'hsn_code':
+      //   const parentHsnCode = parent.hsn_code || '-';
+      //   return wrapWithTooltip(parentHsnCode, parentHsnCode);
       case 'product_name':
         const netWeight = Number(child?.net_weight);
         const weightText =
@@ -556,8 +562,9 @@ const CollapsibleProductTable: React.FC<CollapsibleProductTableProps> = ({
                                     }}
                                   ></ColumnTableCell>
                                   {[
+                                    'Branch',
                                     'SKU ID',
-                                    'HSN Code',
+                                    // 'HSN Code',
                                     'Product Name',
                                     'Quantity',
                                     'Weight',
@@ -578,6 +585,15 @@ const CollapsibleProductTable: React.FC<CollapsibleProductTableProps> = ({
                                   <TableRow key={child.id}>
                                     <RowTableCell sx={{ width: 130 }} />
                                     <RowTableCell
+                                      sx={{ textAlign: 'start', width: 110 }}
+                                    >
+                                      {renderChildCellContent(
+                                        'branch_name',
+                                        child,
+                                        row
+                                      )}
+                                    </RowTableCell>
+                                    <RowTableCell
                                       sx={{
                                         textAlign: 'start',
                                         width: 120,
@@ -589,7 +605,7 @@ const CollapsibleProductTable: React.FC<CollapsibleProductTableProps> = ({
                                         row
                                       )}
                                     </RowTableCell>
-                                    <RowTableCell
+                                    {/* <RowTableCell
                                       sx={{ textAlign: 'start', width: 110 }}
                                     >
                                       {renderChildCellContent(
@@ -597,7 +613,7 @@ const CollapsibleProductTable: React.FC<CollapsibleProductTableProps> = ({
                                         child,
                                         row
                                       )}
-                                    </RowTableCell>
+                                    </RowTableCell> */}
                                     <RowTableCell sx={{ width: 320 }}>
                                       {renderChildCellContent(
                                         'product_name',

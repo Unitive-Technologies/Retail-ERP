@@ -1322,6 +1322,7 @@ const CreateEmployee = () => {
             <MUHDatePickerComponent
               labelText="Joining Date"
               value={edit.getValue('joining_date')}
+              useNewIcon={true}
               handleChange={(newValue) =>
                 edit.update({ joining_date: newValue })
               }
@@ -1360,6 +1361,7 @@ const CreateEmployee = () => {
             <MUHDatePickerComponent
               labelText="Date of Birth"
               value={edit.getValue('dob')}
+              useNewIcon={true}
               handleChange={handleDobChange}
               handleClear={() => edit.update({ dob: null })}
               isError={hasError(fieldErrors.dob)}

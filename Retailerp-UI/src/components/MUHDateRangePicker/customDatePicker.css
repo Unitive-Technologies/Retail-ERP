@@ -383,3 +383,56 @@
   right: -1px;
   border: 1px solid #e0e0e0;
 }
+
+.custom-daterange-picker {
+  width: 100%;
+}
+
+.custom-daterange-picker .react-daterange-picker__wrapper {
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.custom-daterange-picker .react-daterange-picker__inputGroup {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.custom-daterange-picker .react-daterange-picker__inputGroup__input {
+  min-width: 0;
+  padding: 0;
+}
+
+.custom-daterange-picker .react-daterange-picker__inputGroup__input--day,
+.custom-daterange-picker .react-daterange-picker__inputGroup__input--month {
+  width: 1.6em;
+}
+
+.custom-daterange-picker .react-daterange-picker__inputGroup__input--year {
+  width: 2.6em;
+}
+
+.custom-daterange-picker .react-daterange-picker__button {
+  margin: 0;
+  padding: 0 4px;
+}
+
+/* Table variant: remove the "box" around the date range picker (match table cells) */
+.table-daterange-picker.react-daterange-picker {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.table-daterange-picker .react-daterange-picker__wrapper {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 8px !important; /* small left/right padding like table inputs */
+  min-height: 100%;
+}

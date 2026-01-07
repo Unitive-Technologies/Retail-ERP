@@ -308,6 +308,14 @@ const MuiTabComponent = forwardRef<MuiTabComponentHandle, MuiTabComponentProps>(
           sx={{
             border:showBorder? `1px solid ${theme.Colors.grayLight}`:'none',
             borderRadius: '8px',
+            width: '100%',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            '& > *': {
+              width: '100%',
+              boxSizing: 'border-box',
+            },
             ...tabContentClassName,
           }}
         >

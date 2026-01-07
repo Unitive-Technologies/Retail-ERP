@@ -36,6 +36,10 @@ import { EmployeeRoleDropdownService } from './EmployeeRoleDropdownService';
 import { OnlineOrdersService } from './OnlineOrdersService';
 import { OrderService } from './OrderService';
 import { OfferService } from './OfferService';
+import { ProductDeleteService } from './ProductDeleteService';
+import { ProductSoldOutService } from './ProductSoldOutService';
+import { ProductStockInHandsService } from './ProductStockInHandsService';
+import { ProductListCountService } from './ProductListCountService';
 
 export const API_SERVICES = {
   InvoiceService,
@@ -76,4 +80,8 @@ export const API_SERVICES = {
   OnlineOrdersService,
   OrderService,
   OfferService,
+  ProductDeleteService,
+  ProductSoldOutService,
+  ProductStockInHandsService,
+  ProductListCountService,
 };
