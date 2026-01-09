@@ -13,7 +13,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       invoice_no: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.STRING,
         allowNull: true,
       },
       invoice_date: {
@@ -45,10 +45,6 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
       },
       gross_weight: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      wastage: {
         type: DataTypes.STRING,
         allowNull: true,
       },

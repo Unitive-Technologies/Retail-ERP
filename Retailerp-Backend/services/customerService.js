@@ -25,6 +25,7 @@ const createCustomer = async (req, res) => {
       state_id: +req.body.state_id || null,
       district_id: +req.body.district_id || null,
       pin_code: req.body.pin_code || null,
+      pan_no: req.body.pan_no || null,
     };
 
     // Check duplicate mobile number (ACTIVE customers only)
@@ -148,6 +149,24 @@ const updateCustomer = async (req, res) => {
         });
       }
     }
+
+    // Validate mobile number uniqueness (NEW — same as create)
+    if (req.body.mobile_number && req.body.mobile_number !== entity.mobile_number) {
+      const existingMobile = await models.Customer.findOne({
+        where: {
+          mobile_number: req.body.mobile_number,
+          deleted_at: null,
+          id: { [Op.ne]: entity.id }, // exclude current customer
+        },
+      });
+
+      if (existingMobile) {
+        return commonService.badRequest(res, {
+          message: "Mobile number already exists",
+        });
+      }
+    }
+
     const up = {
       customer_code: req.body.customer_code ?? entity.customer_code,
       customer_name: req.body.customer_name ?? entity.customer_name,
@@ -157,6 +176,7 @@ const updateCustomer = async (req, res) => {
       state_id: req.body.state_id !== undefined ? +req.body.state_id : entity.state_id,
       district_id: req.body.district_id !== undefined ? +req.body.district_id : entity.district_id,
       pin_code: req.body.pin_code ?? entity.pin_code,
+      pan_no: req.body.pan_no ?? entity.pan_no,
     };
     await entity.update(up);
     return commonService.okResponse(res, { customer: entity });
@@ -245,6 +265,7 @@ const listCustomerNameMobileDropdown = async (req, res) => {
         c.address,
         c.pin_code,
         c.customer_code,
+        c.pan_no,
         co.country_name,
         s.state_name,
         d.district_name
@@ -269,6 +290,7 @@ const listCustomerNameMobileDropdown = async (req, res) => {
       customer_name: c.customer_name || "",
       mobile_number: c.mobile_number || "",
       customer_code: c.customer_code || null,
+      pan_no: c.pan_no || null,
       address: c.address || "",
       pin_code: c.pin_code || "",
       country_name: c.country_name || "",

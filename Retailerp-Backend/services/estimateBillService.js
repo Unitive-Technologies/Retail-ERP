@@ -1,7 +1,9 @@
 const { models, sequelize } = require("../models");
 const commonService = require("./commonService");
 const enMessage = require("../constants/en.json");
+const { Op } = require("sequelize");
 const { generateFiscalSeriesCode } = require("../helpers/codeGeneration");
+const { validateProductItemDetails, validateProducts } = require('../helpers/billingValidations');
 
 // Generate estimate number (series)
 const generateEstimateNo = async (req, res) => {
@@ -20,24 +22,30 @@ const generateEstimateNo = async (req, res) => {
   }
 };
 
-// Create estimate (header + items)
 const createEstimate = async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const { header = {}, items = [] } = req.body || {};
+
     if (!Array.isArray(items) || items.length === 0) {
-      await t.rollback();
       return commonService.badRequest(res, "At least one item is required");
     }
-    // Totals
+
+    // Run validations
+    await validateProducts(items, t);
+    await validateProductItemDetails(items, t);
+
     let subtotal = 0;
     let totalQty = 0;
+
     const itemRows = items.map((it) => {
       const qty = Number(it.quantity || 0);
       const rate = Number(it.rate || 0);
       const amount = Number(it.amount != null ? it.amount : qty * rate);
+
       subtotal += amount;
       totalQty += qty;
+
       return {
         product_id: it.product_id,
         product_item_detail_id: it.product_item_detail_id ?? null,
@@ -71,7 +79,7 @@ const createEstimate = async (req, res) => {
         sgst_percent: header.sgst_percent || null,
         cgst_amount: cgstAmt,
         sgst_amount: sgstAmt,
-        total_amount: total, // addition of subtotal + cgst + sgst
+        total_amount: total,
         total_quantity: totalQty,
         status: header.status || "Printed",
       },
@@ -79,12 +87,25 @@ const createEstimate = async (req, res) => {
     );
 
     const withFK = itemRows.map((row) => ({ ...row, estimate_bill_id: bill.id }));
-    const createdItems = await models.EstimateBillItem.bulkCreate(withFK, { transaction: t, returning: true });
+    const createdItems = await models.EstimateBillItem.bulkCreate(withFK, {
+      transaction: t,
+      returning: true,
+    });
 
     await t.commit();
-    return commonService.createdResponse(res, { estimate: bill, items: createdItems });
+    return commonService.createdResponse(res, {
+      estimate: bill,
+      items: createdItems,
+    });
+
   } catch (err) {
-    await t.rollback();
+    if (!t.finished) {
+      await t.rollback();
+    }
+    if (err.message.includes('Invalid product_id') ||
+      err.message.includes('Invalid product_item_detail_id')) {
+      return commonService.badRequest(res, err.message);
+    }
     return commonService.handleError(res, err);
   }
 };
@@ -209,6 +230,7 @@ const deleteEstimate = async (req, res) => {
     return commonService.handleError(res, err);
   }
 };
+
 
 module.exports = {
   generateEstimateNo,

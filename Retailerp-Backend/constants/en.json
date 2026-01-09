@@ -53,5 +53,38 @@
     "invoiceCreationSuccess":"Sales Invoice created successfully",
     "paymentModeRequired":"Payment mode is required for orders above ₹2,00,000",
     "panCardRequired":"Cash payment not allowed for amounts above ₹2,00,000. PanCard is Required"
+  }, 
+  "offer": {
+    "duplication": "Duplicate entry for offer code",
+    "notFound": "Offer not found",
+    "alreadyExists": "Offer with this code already exists"
+  },
+  "offerPlan": {
+    "duplication": "Duplicate entry for offer plan name",
+    "notFound": "Offer plan not found",
+    "alreadyExists": "Offer plan with this name already exists"
+  },
+  "offerApplicableType": {
+    "invalidType": "Invalid offer applicable type. Must be 'product' or 'category'.",
+    "alreadyExists": "Applicable type with this name already exists",
+    "duplication": "Duplicate entry for offer applicable type",
+    "notFound": "Offer applicable type not found"
+  }, 
+  "auth": {
+    "invalidCredentials": "Invalid email or password.",
+    "userNotActive": "User account is not active.",
+    "emailPasswordRequired": "Email and password are required.",
+    "loginSuccess": "Login successful.",
+    "emailRequired": "Email is required.",
+    "passwordRequired": "Password is required.",
+    "emailNotFound": "Email not found.",
+    "passwordResetLinkSent": "Password reset link has been sent to your email.",
+    "invalidResetToken": "Invalid or expired password reset token.",
+    "allFieldsRequired": "All fields are required.",
+    "passwordResetSuccess": "Password has been reset successfully.",
+    "passwordsDontMatch": "New password and confirm password do not match.",
+    "invalidOrExpiredToken": "Invalid or expired token.",
+    "passwordResetSuccessful": "Password has been reset successfully."
   }
+
 }

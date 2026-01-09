@@ -71,7 +71,7 @@ const createOldJewel = async (req, res) => {
 
 const getAllOldJewels = async (req, res) => {
   try {
-    const { old_jewel_code } = req.query;
+    const { old_jewel_code, status } = req.query;
 
     const replacements = {};
     let whereSql = `oj.deleted_at IS NULL`;
@@ -79,6 +79,11 @@ const getAllOldJewels = async (req, res) => {
     if (old_jewel_code) {
       whereSql += ` AND oj.old_jewel_code = :old_jewel_code`;
       replacements.old_jewel_code = old_jewel_code;
+    }
+
+    if (status) {
+      whereSql += ` AND oj.status = :status`;
+      replacements.status = status;
     }
 
     // 1️. Fetch old jewels with employee & customer info
@@ -109,12 +114,12 @@ const getAllOldJewels = async (req, res) => {
     // 2️. Fetch all items for these jewels
     const jewelIds = jewels.map(j => j.id);
     const items = await sequelize.query(
-      `
-      SELECT *
-      FROM old_jewel_items
-      WHERE deleted_at IS NULL
-        AND old_jewel_id IN (:jewelIds)
-      ORDER BY old_jewel_id ASC, id ASC
+    `SELECT oji.*, mt.material_type
+      FROM old_jewel_items oji
+      LEFT JOIN "materialTypes" mt ON mt.id = oji.material_type_id AND mt.deleted_at IS NULL
+      WHERE oji.deleted_at IS NULL
+        AND oji.old_jewel_id IN (:jewelIds)
+      ORDER BY oji.old_jewel_id ASC, oji.id ASC
       `,
       {
         replacements: { jewelIds },
@@ -237,6 +242,7 @@ const updateOldJewel = async (req, res) => {
 
       return {
         id: item.id || null,
+        material_type_id: item.material_type_id || null,
         hsn_code: item.hsn_code || null,
         jewel_description: item.jewel_description || null,
         grs_weight: grsWeight,
@@ -287,6 +293,7 @@ const updateOldJewel = async (req, res) => {
       if (row.id) {
         await models.OldJewelItem.update(
           {
+            material_type_id: row.material_type_id,
             hsn_code: row.hsn_code,
             jewel_description: row.jewel_description,
             grs_weight: row.grs_weight,
@@ -374,7 +381,7 @@ const generateOldJewelCode = async (req, res) => {
 const listOldJewelDropdown = async (req, res) => {
   try {
     const { customer_id } = req.query;
-    const where = { is_bill_adjusted: false, };
+    const where = { is_bill_adjusted: false, status: "Printed",};
 
     if (customer_id) {
       where.customer_id = customer_id; // apply filter only if passed

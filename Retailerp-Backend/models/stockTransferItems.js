@@ -12,6 +12,14 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
+      product_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
+      product_item_detail_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
       sku_id: {
         type: DataTypes.STRING,
         allowNull: true,
@@ -36,16 +44,16 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: true,
       },
-      quantity: {
+      available_quantity: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      transfer_quantity: {
         type: DataTypes.INTEGER,
         allowNull: true,
       },
       weight: {
         type: DataTypes.DECIMAL(15, 3),
-        allowNull: true,
-      },
-      amount: {
-        type: DataTypes.DECIMAL(15, 2),
         allowNull: true,
       },
     },

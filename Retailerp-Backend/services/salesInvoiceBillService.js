@@ -2,6 +2,7 @@ const { models, sequelize } = require("../models");
 const commonService = require("./commonService");
 const enMessage = require("../constants/en.json");
 const { generateFiscalSeriesCode } = require("../helpers/codeGeneration");
+const { validateProductItemDetails, validateProducts} = require('../helpers/billingValidations');
 const { Op } = require("sequelize");
 
 // Generate invoice number (series)
@@ -26,26 +27,30 @@ const createSalesInvoice = async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const { header = {}, items = [], payment = {}, adjustments = [] } = req.body || {};
-    
+
     // Validate items
     if (!Array.isArray(items) || items.length === 0) {
       await t.rollback();
       return commonService.badRequest(res, "At least one item is required");
     }
 
-    // Check if a non-deleted invoice already uses this code
+    // Check if invoice_no already exists
     if (header.invoice_no) {
       const existing = await models.SalesInvoiceBill.findOne({
         where: {
           invoice_no: header.invoice_no,
-          deleted_at: null,     // only check active (non-deleted) records
+          deleted_at: null,
         },
       });
-
       if (existing) {
+        await t.rollback();
         return commonService.badRequest(res, { message: "Invoice no already exists" });
       }
     }
+
+    // Validate products and stock
+    await validateProducts(items, t);
+    await validateProductItemDetails(items, t);
 
     // Calculate totals
     let subtotal = 0;
@@ -75,11 +80,10 @@ const createSalesInvoice = async (req, res) => {
       };
     });
 
-    // Get tax amounts (assuming these are already calculated as fixed amounts)
+    // Tax & header discount
     const cgstAmt = Number(header.cgst_amount ?? 0);
     const sgstAmt = Number(header.sgst_amount ?? 0);
 
-    // Apply header-level discount if any
     let headerDiscountAmt = 0;
     if (header.discount_amount && header.discount_amount > 0) {
       if (header.discount_type === "Percentage") {
@@ -87,50 +91,65 @@ const createSalesInvoice = async (req, res) => {
       } else {
         headerDiscountAmt = Number(header.discount_amount);
       }
-      // Ensure header discount doesn't make subtotal negative
       headerDiscountAmt = Math.min(headerDiscountAmt, subtotal);
     }
 
-    // Calculate final total before adjustment
     const taxableAmount = subtotal - headerDiscountAmt;
     let total = taxableAmount + cgstAmt + sgstAmt;
 
-    // APPLY MULTIPLE BILL ADJUSTMENTS
+    // Adjustments
     let totalAdjustment = 0;
     if (Array.isArray(adjustments) && adjustments.length > 0) {
-      totalAdjustment = adjustments.reduce((sum, adj) => {
-        return sum + (Number(adj.adjustment_amount) || 0);
-      }, 0);
+      totalAdjustment = adjustments.reduce((sum, adj) => sum + (Number(adj.adjustment_amount) || 0), 0);
 
-      // Calculate the maximum allowed adjustment (total before adjustment)
-      const maxAllowedAdjustment = total; // This is the total before any adjustments
-
-      if (totalAdjustment > maxAllowedAdjustment) {
+      if (totalAdjustment > total) {
         await t.rollback();
         return commonService.badRequest(res, {
           message: "Total adjustment amount cannot exceed the invoice total",
-          maxAllowedAdjustment,
-          attemptedAdjustment: totalAdjustment
         });
       }
 
-      // Subtract total adjustment
       total -= totalAdjustment;
-
-      // Prevent negative totals
       if (total < 0) total = 0;
     }
+    // Round off total_amount to nearest integer when adjustments exist
+    total = Math.round(total);
 
-    // Validate payment for high-value transactions
-    if (total > 200000) {
-      if (payment.payment_mode === 'Cash') {
-        await t.rollback();
-        return commonService.badRequest(res, enMessage.billing.panCardRequired);
-      }
+    // PAYMENT PROCESSING
+    const paymentInput = Array.isArray(payment) ? payment : [];
+    const paymentRows = paymentInput
+      .filter(p => p.payment_mode)
+      .map(p => ({
+        payment_mode: p.payment_mode,
+        amount_received: Number(p.amount_received || 0),
+        payment_date: p.payment_date || new Date(),
+        transaction_id: p.transaction_id || null,
+        status: "Completed",
+        created_by: req.user?.id || null,
+      }));
+
+    const totalPaid = paymentRows.reduce((sum, p) => sum + p.amount_received, 0);
+
+    let refundAmount = 0;
+    let amountDue = total;
+    if (totalPaid > total) {
+      refundAmount = totalPaid - total;
+      amountDue = 0;
+    } else {
+      amountDue = total - totalPaid;
     }
-    
 
-    // Create invoice
+    // === PAN CARD VALIDATION: Total CASH received ≥ ₹2 Lakh ===
+    const totalCashReceived = paymentRows
+      .filter(p => p.payment_mode?.toLowerCase() === 'cash')
+      .reduce((sum, p) => sum + p.amount_received, 0);
+
+    if (totalCashReceived >= 200000) {
+      await t.rollback();
+      return commonService.badRequest(res, enMessage.billing.panCardRequired);
+    }
+
+    // Create invoice bill
     const bill = await models.SalesInvoiceBill.create(
       {
         invoice_no: header.invoice_no,
@@ -147,7 +166,8 @@ const createSalesInvoice = async (req, res) => {
         discount_type: header.discount_type || null,
         discount_amount: headerDiscountAmt,
         total_amount: total,
-        amount_due: header.amount_due,
+        amount_due: amountDue,
+        refund_amount: refundAmount,
         total_quantity: totalQty,
         hasBillAdjustment: header.hasBillAdjustment || false,
         status: header.status,
@@ -156,7 +176,21 @@ const createSalesInvoice = async (req, res) => {
       { transaction: t }
     );
 
-    // INSERT MULTIPLE ADJUSTMENT ENTRIES (only if exists)
+    // Now add invoice_bill_id to payments
+    paymentRows.forEach(p => {
+      p.invoice_bill_id = bill.id;
+    });
+
+    // Create payments
+    let savedPayments = [];
+    if (paymentRows.length > 0) {
+      savedPayments = await models.Payment.bulkCreate(paymentRows, {
+        transaction: t,
+        returning: true,
+      });
+    }
+
+    // Adjustments
     let savedAdjustments = [];
     if (Array.isArray(adjustments) && adjustments.length > 0) {
       const adjustmentRows = adjustments.map(adj => ({
@@ -167,30 +201,20 @@ const createSalesInvoice = async (req, res) => {
         adjustment_amount: Number(adj.adjustment_amount) || 0,
       }));
 
-      savedAdjustments = await models.SalesInvoiceAdjustment.bulkCreate(
-        adjustmentRows,
-        { transaction: t }
-      );
+      savedAdjustments = await models.SalesInvoiceAdjustment.bulkCreate(adjustmentRows, { transaction: t });
 
-      // Update is_bill_adjusted flag for each adjustment
+      // Update is_bill_adjusted flags
       for (const adj of adjustments) {
         if (adj.reference_id) {
           if (adj.adjustment_type_id === 1) { // Sales Return
             await models.SalesReturn.update(
               { is_bill_adjusted: true },
-              {
-                where: { id: adj.reference_id },
-                transaction: t
-              }
+              { where: { id: adj.reference_id }, transaction: t }
             );
-          }
-          else if (adj.adjustment_type_id === 2) { // Old Jewel
+          } else if (adj.adjustment_type_id === 2) { // Old Jewel
             await models.OldJewel.update(
               { is_bill_adjusted: true },
-              {
-                where: { id: adj.reference_id },
-                transaction: t
-              }
+              { where: { id: adj.reference_id }, transaction: t }
             );
           }
         }
@@ -198,10 +222,10 @@ const createSalesInvoice = async (req, res) => {
     }
 
     // Create invoice items
-    const withFK = itemRows.map((row) => ({ ...row, invoice_bill_id: bill.id }));
-    await models.SalesInvoiceBillItem.bulkCreate(withFK, { transaction: t });
+    const withFK = itemRows.map(row => ({ ...row, invoice_bill_id: bill.id }));
+    const savedItems = await models.SalesInvoiceBillItem.bulkCreate(withFK, { transaction: t, returning: true });
 
-    // Update customer PAN if provided
+    // Update customer PAN
     if (req.body.customer?.pan_no && header.customer_id) {
       await models.Customer.update(
         { pan_no: req.body.customer.pan_no },
@@ -209,68 +233,48 @@ const createSalesInvoice = async (req, res) => {
       );
     }
 
-    // Create payments if array is provided
-    const paymentRows = (payment || [])
-      .filter(p => p.payment_mode) // ignore any empty objects
-      .map(p => ({
-        invoice_bill_id: bill.id,
-        payment_mode: p.payment_mode,
-        amount_received: p.amount_received,
-        payment_date: p.payment_date || new Date(),
-        transaction_id: p.transaction_id || null,
-        status: "Completed",
-        created_by: req.user?.id || null,
-      }));
-    
-    // Reduce stock only the status is invoice
-    if (header.status === "Invoice") {
-      if (paymentRows.length > 0) {
-        await models.Payment.bulkCreate(paymentRows, { transaction: t });
-        // Reduce stock quantities
-        for (const item of items) {
-          if (item.product_item_detail_id && item.quantity > 0) {
-            const productItemDetail = await models.ProductItemDetail.findByPk(
-              item.product_item_detail_id,
-              { transaction: t }
-            );
+    // Reduce stock only if status = "Invoice"
+    if (header.status === "Invoice" && savedPayments.length > 0) {
+      for (const item of items) {
+        if (item.product_item_detail_id && item.quantity > 0) {
+          const productItemDetail = await models.ProductItemDetail.findByPk(
+            item.product_item_detail_id,
+            { transaction: t }
+          );
 
-            if (!productItemDetail) {
-              await t.rollback();
-              return commonService.badRequest(
-                res,
-                `Product item detail not found for ID: ${item.product_item_detail_id}`
-              );
-            }
-
-            const newQuantity = productItemDetail.quantity - item.quantity;
-
-            if (newQuantity < 0) {
-              await t.rollback();
-              return commonService.badRequest(
-                res,
-                `Insufficient stock for product item detail ID: ${item.product_item_detail_id}`
-              );
-            }
-
-            await productItemDetail.update(
-              { quantity: newQuantity },
-              { transaction: t }
-            );
+          if (!productItemDetail) {
+            await t.rollback();
+            return commonService.badRequest(res, `Product item detail not found for ID: ${item.product_item_detail_id}`);
           }
+
+          const newQuantity = productItemDetail.quantity - item.quantity;
+          if (newQuantity < 0) {
+            await t.rollback();
+            return commonService.badRequest(res, `Insufficient stock for product item detail ID: ${item.product_item_detail_id}`);
+          }
+
+          await productItemDetail.update({ quantity: newQuantity }, { transaction: t });
         }
       }
     }
 
     await t.commit();
-    return commonService.createdResponse(res, { 
+
+    return commonService.createdResponse(res, {
       message: enMessage.billing.invoiceCreationSuccess,
       invoice: bill,
-      items: withFK,
-      payments: paymentRows,
-      adjustment: savedAdjustments
+      items: savedItems,
+      payments: savedPayments,
+      adjustment: savedAdjustments,
     });
   } catch (err) {
-    await t.rollback();
+    if (!t.finished) {
+      await t.rollback();
+    }
+    if (err.message.includes('Invalid product_id') ||
+      err.message.includes('Invalid product_item_detail_id')) {
+      return commonService.badRequest(res, err.message);
+    }
     return commonService.handleError(res, err);
   }
 };
@@ -338,20 +342,31 @@ const getSalesInvoiceById = async (req, res) => {
 // List invoices - bill page/ customer - order details page
 const listSalesInvoices = async (req, res) => {
   try {
-    const { from, to, invoice_no, employee_id, customer_id, branch_id, order_type, search } = req.query || {};
+    const { from, to, invoice_no, employee_id, customer_id, branch_id, order_type, search, status } = req.query || {};
 
     let sql = `
       WITH invoice_items AS (
-        SELECT 
+        SELECT
           invoice_bill_id,
           JSON_AGG(
             JSON_BUILD_OBJECT(
               'id', id,
+              'invoice_bill_id', invoice_bill_id,
+              'product_id', product_id,
+              'product_item_detail_id', product_item_detail_id,
+              'hsn_code', hsn_code,
               'product_name_snapshot', product_name_snapshot,
+              'gross_weight', gross_weight,
+              'net_weight', net_weight,
+              'wastage', wastage,
               'quantity', quantity,
               'rate', rate,
-              'amount', amount
+              'discount_amount', discount_amount,
+              'amount', amount,
+              'created_at', created_at,
+              'updated_at', updated_at
             )
+            ORDER BY id ASC
           ) AS items,
           SUM(quantity) AS total_quantity,
           SUM(amount) AS total_amount
@@ -361,6 +376,8 @@ const listSalesInvoices = async (req, res) => {
       )
       SELECT
         i.*,
+        e.employee_name as sales_person_name,
+        e.employee_no as sales_person_code,
 
         -- Customer details
         c.customer_name,
@@ -444,6 +461,7 @@ const listSalesInvoices = async (req, res) => {
         ) AS total_paid_amount
 
       FROM sales_invoice_bills i
+      LEFT JOIN employees e ON e.id = i.employee_id
 
       -- Customer joins
       LEFT JOIN customers c ON c.id = i.customer_id
@@ -499,6 +517,11 @@ const listSalesInvoices = async (req, res) => {
       replacements.order_type = order_type;
     }
 
+    if (status) {
+      sql += ` AND i.status = :status`;
+      replacements.status = status;
+    }
+
     if (search) {
       sql += ` AND (
         i.invoice_no ILIKE :search OR
@@ -523,15 +546,43 @@ const listSalesInvoices = async (req, res) => {
       type: sequelize.QueryTypes.SELECT
     });
 
+    // Remaining quantity logic - Extract all product_item_detail_ids
+    const productItemDetailIds = invoices
+      .flatMap(inv =>
+        (typeof inv.invoice_items === "string"
+          ? JSON.parse(inv.invoice_items)
+          : inv.invoice_items || [])
+          .map(item => item.product_item_detail_id)
+      )
+      .filter(Boolean);
+
+    // Fetch current stock from ProductItemDetails
+    const productItems = productItemDetailIds.length ? await sequelize.query(`SELECT id, sku_id, quantity FROM "productItemDetails" WHERE id IN (:ids)`,
+    {
+      replacements: { ids: productItemDetailIds },
+      type: sequelize.QueryTypes.SELECT
+    }) : [];
+
+    // Create lookup map
+    const productItemMap = productItems.reduce((acc, row) => {
+      acc[row.id] = {
+        sku_id: row.sku_id,
+        quantity: row.quantity
+      };
+      return acc;
+    }, {});
+
     // Format the response
     const formattedInvoices = invoices.map(invoice => {
       const totalPaid = parseFloat(invoice.total_paid_amount || 0);
       const totalAfterAdjustment = parseFloat(invoice.total_amount || 0);
       const totalAdjustment = parseFloat(invoice.total_adjustment_amount || 0);
-
       const totalBeforeAdjustment = totalAfterAdjustment + totalAdjustment;
-
       const amountDue = totalAfterAdjustment - totalPaid;
+      const invoiceItems =
+        typeof invoice.invoice_items === "string"
+          ? JSON.parse(invoice.invoice_items)
+          : invoice.invoice_items || [];
 
       return {
         ...invoice,
@@ -541,10 +592,11 @@ const listSalesInvoices = async (req, res) => {
         total_paid_amount: totalPaid.toFixed(2),
         amount_due: amountDue.toFixed(2),
 
-        invoice_items:
-          typeof invoice.invoice_items === "string"
-            ? JSON.parse(invoice.invoice_items)
-            : invoice.invoice_items || [],
+        invoice_items: invoiceItems.map(item => ({
+          ...item,
+          remaining_quantity: productItemMap[item.product_item_detail_id]?.quantity ?? 0,
+          product_item_sku_id: productItemMap[item.product_item_detail_id]?.sku_id ?? null
+        })),
 
         bill_adjustments:
           typeof invoice.bill_adjustments === "string"
@@ -574,7 +626,6 @@ const listSalesInvoices = async (req, res) => {
   }
 };
 
-
 // Delete (soft)
 const deleteSalesInvoice = async (req, res) => {
   const t = await sequelize.transaction();
@@ -595,11 +646,7 @@ const deleteSalesInvoice = async (req, res) => {
 // light search for  - Sales Return Search box
 const searchInvoices = async (req, res) => {
   try {
-    const { invoice_no, mobile_number } = req.query;
-
-    if (!invoice_no && !mobile_number) {
-      return commonService.badRequest(res, 'Either invoice number or mobile number is required');
-    }
+    const { invoice_no, mobile_number, status } = req.query;
 
     // First, find customer IDs if mobile number is provided
     let customerIds = [];
@@ -615,7 +662,6 @@ const searchInvoices = async (req, res) => {
       });
       customerIds = customers.map(c => c.id);
 
-      // If no customers found with this mobile number
       if (customerIds.length === 0) {
         return commonService.okResponse(res, {
           count: 0,
@@ -633,11 +679,14 @@ const searchInvoices = async (req, res) => {
       };
     }
 
-    // Add customer IDs to where condition if mobile number was provided
     if (customerIds.length > 0) {
       whereCondition.customer_id = {
         [Op.in]: customerIds
       };
+    }
+
+    if (status) {
+      whereCondition.status = status; 
     }
 
     // Find all matching invoices
@@ -667,8 +716,12 @@ const searchInvoices = async (req, res) => {
           where: { invoice_bill_id: invoice.id },
           raw: true
         }),
+        // ← ONLY NON-RETURNED ITEMS
         models.SalesInvoiceBillItem.findAll({
-          where: { invoice_bill_id: invoice.id },
+          where: {
+            invoice_bill_id: invoice.id,
+            is_returned: false  // ← This filters out returned items
+          },
           raw: true
         })
       ]);
@@ -682,10 +735,14 @@ const searchInvoices = async (req, res) => {
       };
     }));
 
+    // Optional: filter out invoices that have no items after excluding returned ones
+    const filteredResult = result.filter(r => r.items.length > 0);
+
     return commonService.okResponse(res, {
-      count: result.length,
-      invoices: result
+      count: filteredResult.length,
+      invoices: filteredResult
     });
+
   } catch (error) {
     console.error('Error searching invoices:', error);
     return commonService.handleError(res, error);
@@ -699,7 +756,6 @@ const updateSalesInvoice = async (req, res) => {
     const { header = {}, items = [], payment = [], adjustments = [] } = req.body || {};
 
     // 1. FETCH & VALIDATE INVOICE
-
     const invoice = await models.SalesInvoiceBill.findByPk(invoiceId, {
       transaction: t,
     });
@@ -720,7 +776,6 @@ const updateSalesInvoice = async (req, res) => {
     const status = header.status ?? invoice.status;
 
     // 2. ITEMS VALIDATION
-
     if (!Array.isArray(items) || items.length === 0) {
       await t.rollback();
       return commonService.badRequest(
@@ -729,8 +784,11 @@ const updateSalesInvoice = async (req, res) => {
       );
     }
 
-    // 4. RECALCULATE TOTALS
+    // Validate products and stock
+    await validateProducts(items, t);
+    await validateProductItemDetails(items, t);
 
+    // RECALCULATE TOTALS
     let subtotal = 0;
     let totalQty = 0;
 
@@ -776,7 +834,6 @@ const updateSalesInvoice = async (req, res) => {
     let total = subtotal - headerDiscountAmt + cgstAmt + sgstAmt;
 
     // 5. APPLY ADJUSTMENTS (CALC ONLY)
-
     let totalAdjustment = 0;
     if (Array.isArray(adjustments) && adjustments.length > 0) {
       totalAdjustment = adjustments.reduce(
@@ -794,11 +851,61 @@ const updateSalesInvoice = async (req, res) => {
       }
 
       total -= totalAdjustment;
-      if (total < 0) total = 0;
+      if (total < 0) total = 0; 
+    }
+    // Round off total_amount to nearest integer when adjustments exist
+    total = Math.round(total);
+
+    // 5. PAYMENT PROCESSING & CASH VALIDATION
+    const incomingPayments = Array.isArray(payment) ? payment : [];
+
+    // Fetch existing payments
+    const existingPayments = await models.Payment.findAll({
+      where: { invoice_bill_id: invoice.id },
+      attributes: ['id', 'payment_mode', 'amount_received'],
+      transaction: t,
+    });
+
+    // Combine existing + incoming (excluding deleted ones)
+    const allPayments = [
+      ...existingPayments.map(p => ({
+        id: p.id,
+        payment_mode: p.payment_mode,
+        amount_received: Number(p.amount_received),
+      })),
+      ...incomingPayments
+        .filter(p => p.payment_mode)
+        .map(p => ({
+          id: p.id || null,
+          payment_mode: p.payment_mode,
+          amount_received: Number(p.amount_received || 0),
+        })),
+    ];
+
+    const totalPaid = allPayments.reduce((sum, p) => sum + p.amount_received, 0);
+
+    let refundAmount = 0;
+    let amountDue = total;
+
+    if (totalPaid > total) {
+      refundAmount = totalPaid - total;
+      amountDue = 0;
+    } else {
+      amountDue = total - totalPaid;
     }
 
-    // 6. UPDATE INVOICE HEADER
+    // === PAN CARD VALIDATION: Total CASH ≥ ₹2 Lakh ===
+    const totalCashReceived = allPayments
+      .filter(p => p.payment_mode?.toLowerCase() === 'cash')
+      .reduce((sum, p) => sum + p.amount_received, 0);
 
+    if (totalCashReceived >= 200000) {
+      await t.rollback();
+      return commonService.badRequest(res, enMessage.billing.panCardRequired);
+    }
+    // === END VALIDATION ===
+
+    // 6. UPDATE INVOICE HEADER
     await invoice.update(
       {
         invoice_date: header.invoice_date || invoice.invoice_date,
@@ -814,7 +921,8 @@ const updateSalesInvoice = async (req, res) => {
         discount_type: header.discount_type,
         discount_amount: headerDiscountAmt,
         total_amount: total,
-        amount_due: header.amount_due ?? total,
+        amount_due: amountDue,
+        refund_amount: refundAmount,
         total_quantity: totalQty,
         hasBillAdjustment: header.hasBillAdjustment,
         status: status,
@@ -823,25 +931,16 @@ const updateSalesInvoice = async (req, res) => {
     );
 
     // 7. UPSERT INVOICE ITEM DETAILS
-    const existingItems = await models.SalesInvoiceBillItem.findAll({
-      where: { invoice_bill_id: invoice.id },
-      transaction: t,
-    });
+    const payloadItemIds = itemRows.filter(i => i.id).map(i => i.id);
 
-    const payloadItemIds = itemRows
-      .filter(i => i.id)
-      .map(i => i.id);
-
-    // DELETE omitted items
     await models.SalesInvoiceBillItem.destroy({
       where: {
         invoice_bill_id: invoice.id,
-        id: { [Op.notIn]: payloadItemIds },
+        id: { [Op.notIn]: payloadItemIds.length > 0 ? payloadItemIds : [0] },
       },
       transaction: t,
     });
 
-    // UPSERT
     for (const row of itemRows) {
       if (row.id) {
         await models.SalesInvoiceBillItem.update(row, {
@@ -857,29 +956,20 @@ const updateSalesInvoice = async (req, res) => {
     }
 
     // 8. UPSERT PAYMENTS
-    const existingPayments = await models.Payment.findAll({
-      where: { invoice_bill_id: invoice.id },
-      transaction: t,
-    });
+    const payloadPaymentIds = incomingPayments.filter(p => p.id).map(p => p.id);
 
-    const payloadPaymentIds = payment
-      .filter(p => p.id)
-      .map(p => p.id);
-
-    // delete omitted payments
     await models.Payment.destroy({
       where: {
         invoice_bill_id: invoice.id,
-        id: { [Op.notIn]: payloadPaymentIds },
+        id: { [Op.notIn]: payloadPaymentIds.length > 0 ? payloadPaymentIds : [0] },
       },
       transaction: t,
     });
 
-    // upsert
-    for (const p of payment) {
+    for (const p of incomingPayments) {
       const data = {
         payment_mode: p.payment_mode,
-        amount_received: p.amount_received,
+        amount_received: Number(p.amount_received || 0),
         payment_date: p.payment_date || new Date(),
         transaction_id: p.transaction_id || null,
         status: "Completed",
@@ -899,26 +989,16 @@ const updateSalesInvoice = async (req, res) => {
     }
 
     // 9. UPSERT ADJUSTMENTS
-    const existingAdjustments =
-      await models.SalesInvoiceAdjustment.findAll({
-        where: { sales_invoice_id: invoice.id },
-        transaction: t,
-      });
+    const payloadAdjIds = adjustments.filter(a => a.id).map(a => a.id);
 
-    const payloadAdjIds = adjustments
-      .filter(a => a.id)
-      .map(a => a.id);
-
-    // delete
     await models.SalesInvoiceAdjustment.destroy({
       where: {
         sales_invoice_id: invoice.id,
-        id: { [Op.notIn]: payloadAdjIds },
+        id: { [Op.notIn]: payloadAdjIds.length > 0 ? payloadAdjIds : [0] },
       },
       transaction: t,
     });
 
-    // upsert
     for (const adj of adjustments) {
       const data = {
         adjustment_type_id: adj.adjustment_type_id,
@@ -940,17 +1020,15 @@ const updateSalesInvoice = async (req, res) => {
       }
     }
 
-    // FINALIZE SIDE EFFECTS (ONLY IF INVOICE)
+    // FINALIZE SIDE EFFECTS (ONLY IF STATUS = "Invoice")
     if (status === "Invoice") {
-
       // Reduce stock
       for (const item of items) {
         if (item.product_item_detail_id && item.quantity > 0) {
-          const productItemDetail =
-            await models.ProductItemDetail.findByPk(
-              item.product_item_detail_id,
-              { transaction: t }
-            );
+          const productItemDetail = await models.ProductItemDetail.findByPk(
+            item.product_item_detail_id,
+            { transaction: t }
+          );
 
           if (!productItemDetail) {
             await t.rollback();
@@ -960,8 +1038,7 @@ const updateSalesInvoice = async (req, res) => {
             );
           }
 
-          const newQty =
-            productItemDetail.quantity - Number(item.quantity);
+          const newQty = productItemDetail.quantity - Number(item.quantity);
 
           if (newQty < 0) {
             await t.rollback();
@@ -980,16 +1057,18 @@ const updateSalesInvoice = async (req, res) => {
 
       // Lock adjustments
       for (const adj of adjustments) {
-        if (adj.adjustment_type_id === 1) {
-          await models.SalesReturn.update(
-            { is_bill_adjusted: true },
-            { where: { id: adj.reference_id }, transaction: t }
-          );
-        } else if (adj.adjustment_type_id === 2) {
-          await models.OldJewel.update(
-            { is_bill_adjusted: true },
-            { where: { id: adj.reference_id }, transaction: t }
-          );
+        if (adj.reference_id) {
+          if (adj.adjustment_type_id === 1) {
+            await models.SalesReturn.update(
+              { is_bill_adjusted: true },
+              { where: { id: adj.reference_id }, transaction: t }
+            );
+          } else if (adj.adjustment_type_id === 2) {
+            await models.OldJewel.update(
+              { is_bill_adjusted: true },
+              { where: { id: adj.reference_id }, transaction: t }
+            );
+          }
         }
       }
     }
@@ -1000,7 +1079,13 @@ const updateSalesInvoice = async (req, res) => {
     });
 
   } catch (err) {
-    await t.rollback();
+    if (!t.finished) {
+      await t.rollback();
+    }
+    if (err.message.includes('Invalid product_id') ||
+      err.message.includes('Invalid product_item_detail_id')) {
+      return commonService.badRequest(res, err.message);
+    }
     return commonService.handleError(res, err);
   }
 };

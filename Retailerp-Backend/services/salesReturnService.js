@@ -26,7 +26,7 @@ const createSalesReturn = async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const { header = {}, items = [] } = req.body || {};
-    
+
     if (!Array.isArray(items) || items.length === 0) {
       await t.rollback();
       return commonService.badRequest(res, "At least one item is required");
@@ -35,14 +35,15 @@ const createSalesReturn = async (req, res) => {
     // Calculate totals
     let subtotal = 0;
     let totalQty = 0;
-    
+
     const itemRows = items.map((it) => {
       const qty = Number(it.quantity || 0);
       const rate = Number(it.rate || 0);
       const amount = Number(it.amount != null ? it.amount : qty * rate);
+
       subtotal += amount;
       totalQty += qty;
-      
+
       return {
         product_id: it.product_id,
         product_item_detail_id: it.product_item_detail_id || null,
@@ -51,10 +52,11 @@ const createSalesReturn = async (req, res) => {
         product_description: it.product_description || null,
         net_weight: it.net_weight || null,
         gross_weight: it.gross_weight || null,
-        wastage: it.wastage || null,
         quantity: qty,
         rate,
-        amount
+        amount,
+        invoice_date: it.invoice_date || null,
+        invoice_no: it.invoice_no || null,
       };
     });
 
@@ -84,16 +86,50 @@ const createSalesReturn = async (req, res) => {
     );
 
     // Create sales return items
-    const withFK = itemRows.map((row) => ({ ...row, sales_return_id: salesReturn.id }));
-    const createdItems = await models.SalesReturnItem.bulkCreate(withFK, { 
-      transaction: t, 
-      returning: true 
+    const withFK = itemRows.map((row) => ({
+      ...row,
+      sales_return_id: salesReturn.id,
+    }));
+
+    const createdItems = await models.SalesReturnItem.bulkCreate(withFK, {
+      transaction: t,
+      returning: true,
     });
 
+    // === UPDATE ORIGINAL INVOICE ITEMS: is_returned = true (per item) ===
+    for (const item of createdItems) {
+      const originalInvoiceNo = items.find(
+        orig => orig.product_item_detail_id === item.product_item_detail_id
+      )?.invoice_no;
+
+      if (originalInvoiceNo && item.product_item_detail_id) {
+        // Find the original invoice by invoice_no
+        const originalInvoice = await models.SalesInvoiceBill.findOne({
+          where: { invoice_no: originalInvoiceNo },
+          transaction: t,
+        });
+
+        if (originalInvoice) {
+          await models.SalesInvoiceBillItem.update(
+            { is_returned: true },
+            {
+              where: {
+                invoice_bill_id: originalInvoice.id,
+                product_item_detail_id: item.product_item_detail_id,
+              },
+              transaction: t,
+            }
+          );
+        }
+      }
+    }
+    // === END UPDATE ===
+
     await t.commit();
-    return commonService.createdResponse(res, { 
-      sales_return: salesReturn, 
-      items: createdItems 
+
+    return commonService.createdResponse(res, {
+      sales_return: salesReturn,
+      items: createdItems,
     });
   } catch (err) {
     await t.rollback();
@@ -162,6 +198,7 @@ const listSalesReturns = async (req, res) => {
       SELECT 
         sr.*, 
         c.customer_name AS customer_name,
+        c.mobile_number AS customer_mobile,
         e.employee_name AS employee_name,
         b.branch_name
       FROM sales_returns sr
@@ -182,7 +219,7 @@ const listSalesReturns = async (req, res) => {
       const itemsQuery = `
         SELECT *
         FROM sales_return_items
-        WHERE sales_return_id IN (${salesReturnIds.join(",")})
+        WHERE sales_return_id IN (${salesReturnIds.join(",")}) AND deleted_at IS NULL
         ORDER BY sales_return_id;
       `;
 
@@ -227,7 +264,6 @@ const listSalesReturns = async (req, res) => {
   }
 };
 
-
 // Delete sales return (soft delete)
 const deleteSalesReturn = async (req, res) => {
   const t = await sequelize.transaction();
@@ -263,7 +299,7 @@ const deleteSalesReturn = async (req, res) => {
 const listSalesReturnDropdown = async (req, res) => {
   try {
     const { customer_id } = req.query;
-    const where = { is_bill_adjusted: false, };
+    const where = { is_bill_adjusted: false, status: "Printed", };
 
     if (customer_id) {
       where.customer_id = customer_id; // apply filter only if passed
@@ -336,7 +372,6 @@ const updateSalesReturn = async (req, res) => {
         product_description: it.product_description || null,
         net_weight: it.net_weight || null,
         gross_weight: it.gross_weight || null,
-        wastage: it.wastage || null,
         quantity: qty,
         rate,
         amount
@@ -359,7 +394,7 @@ const updateSalesReturn = async (req, res) => {
     await salesReturn.update(
       {
         sales_return_no:
-          header.sales_return_no ?? salesReturn.sales_return_no,
+        header.sales_return_no ?? salesReturn.sales_return_no,
         return_date: header.return_date || salesReturn.return_date,
         return_time: header.return_time || salesReturn.return_time,
         employee_id: header.employee_id,
@@ -408,7 +443,6 @@ const updateSalesReturn = async (req, res) => {
             product_description: row.product_description,
             net_weight: row.net_weight,
             gross_weight: row.gross_weight,
-            wastage: row.wastage,
             quantity: row.quantity,
             rate: row.rate,
             amount: row.amount

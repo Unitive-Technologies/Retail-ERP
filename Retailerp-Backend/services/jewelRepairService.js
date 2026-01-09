@@ -82,6 +82,7 @@ const createJewelRepair = async (req, res) => {
     // Create Repair Items
     const repairItemsPayload = items.map(item => ({
       repair_id: repair.id,
+      material_type_id: item.material_type_id,
       description: item.description,
       quantity: Number(item.quantity || 1),
       weight: Number(item.weight || 0),
@@ -194,6 +195,7 @@ const getAllJewelRepairs = async (req, res) => {
       `SELECT
         jr.*,
         e.employee_name AS employee_name,
+        e.employee_no AS employee_code,
 
         -- Customer details
         c.customer_name AS customer_name,
@@ -278,10 +280,11 @@ const getAllJewelRepairs = async (req, res) => {
       // Fetch repair items
       sequelize.query(
         `SELECT
-          jri.*,
+          jri.*, material_type,
           p.product_name
         FROM jewel_repair_items jri
         LEFT JOIN products p ON p.id = jri.product_id
+        LEFT JOIN "materialTypes" mt ON mt.id = jri.material_type_id AND mt.deleted_at IS NULL
         WHERE jri.repair_id IN (:repairIds)`,
         {
           replacements: { repairIds },

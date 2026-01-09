@@ -10,11 +10,14 @@ router.get("/products/search/sku", svc.searchProductBySkuNew);
 router.post("/products/generateSku", svc.createProductSKUCode);
 router.get("/products/list-details", svc.getAllProductDetails);
 router.get("/products/addon-list", svc.getProductAddonList);
+router.get("/products/stock/counts", svc.getProductStockCounts);
 router.get("/product-id-by-sku", svc.getProductIdBySku);
+router.get("/products/deleted", svc.getDeletedProducts);
 router.get("/products/:id", svc.getProductById);
 router.put("/products/:id", svc.updateProduct);
 router.delete("/products/:id", svc.deleteProduct);
 router.patch("/products/:id/status", svc.updateProductStatus);
+
 
 module.exports = router;
 

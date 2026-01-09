@@ -134,8 +134,12 @@ const Leave = require("./leave")(sequelize, Sequelize.DataTypes);
 const SuperAdminProfile = require("./superAdminProfiles")(sequelize, Sequelize.DataTypes);
 const InvoiceSettingEnum = require("./invoiceSettingEnum")(sequelize, Sequelize.DataTypes);
 
+
+// Stock Management related models
 const StockTransfer = require("./stockTransfers")(sequelize, Sequelize.DataTypes);
 const StockTransferItem = require("./stockTransferItems")(sequelize, Sequelize.DataTypes);
+const StockTransferTracking = require("./stockTransferTrackings")(sequelize, Sequelize.DataTypes);
+const StockTransferStatusHistory = require("./stockTransferStatusHistories")(sequelize, Sequelize.DataTypes);
 
 // Vendor Payment models
 const BillType = require("./billTypes")(sequelize, Sequelize.DataTypes);
@@ -152,6 +156,10 @@ const CustomerAddress = require("./customerAddresses")(sequelize, Sequelize.Data
 const OfferPlan = require("./offerPlans")(sequelize, Sequelize.DataTypes);
 const OfferApplicableType = require("./offerApplicableTypes")(sequelize, Sequelize.DataTypes);
 const Offer = require("./offers")(sequelize, Sequelize.DataTypes);
+
+// Assest Management related models
+const Maintenance = require("./maintenances")(sequelize, Sequelize.DataTypes);
+const MaintenanceType = require("./maintenanceTypes")(sequelize, Sequelize.DataTypes);
 
 const models = {
   Permission,
@@ -227,6 +235,8 @@ const models = {
   JewelRepairItem,
   StockTransfer,
   StockTransferItem,
+  StockTransferTracking,
+  StockTransferStatusHistory,
   BillType,
   PaymentMode,
   VendorPayment,
@@ -238,7 +248,9 @@ const models = {
   Purity,
   OfferPlan,
   OfferApplicableType,
-  Offer
+  Offer,
+  Maintenance,
+  MaintenanceType
 };
 
 Object.values(models).forEach((model) => {

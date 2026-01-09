@@ -24,24 +24,16 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
-      staff_name_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-      },
       reference_no: {
         type: DataTypes.STRING,
         allowNull: false,
       },
-      transport_id: {
+      created_by: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
       },
       remarks: {
         type: DataTypes.TEXT,
-        allowNull: true,
-      },
-      grand_total: {
-        type: DataTypes.DECIMAL(15, 2),
         allowNull: true,
       },
       total_product: {
@@ -57,7 +49,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
       },
       status_id: {
-        type: DataTypes.INTEGER, // 1- pending, 2 - completed
+        type: DataTypes.INTEGER, // 1- New, 2 - In Progress, 3- Delivered
         allowNull: false,
         defaultValue: 1,
       },

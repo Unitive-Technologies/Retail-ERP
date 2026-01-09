@@ -41,19 +41,27 @@ module.exports = (sequelize, DataTypes) => {
                 allowNull: false,
             },
             // price breakup details
-            rate: {
+            rate: { // selling price for piece rate and net wt* material price for wt based
                 type: DataTypes.DECIMAL(15, 2),
                 allowNull: false,
             },
-            amount: {  // rate* net weight
+            amount: {  // same as rate
                 type: DataTypes.DECIMAL(15, 2),
                 allowNull: false,
+            },
+            discount: {
+                type: DataTypes.DECIMAL(15, 2),
+                allowNull: true,
             },
             making_charge:{
                 type: DataTypes.DECIMAL(15, 2),
                 allowNull: false,
             },
             wastage: {
+                type: DataTypes.DECIMAL(15, 2),
+                allowNull: true,
+            },
+            stone_value: {
                 type: DataTypes.DECIMAL(15, 2),
                 allowNull: true,
             },
