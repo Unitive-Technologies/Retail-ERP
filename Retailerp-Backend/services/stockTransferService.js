@@ -2,6 +2,7 @@ const { models, sequelize } = require("../models");
 const commonService = require("./commonService");
 const { Op } = require("sequelize");
 const { generateFiscalSeriesCode } = require("../helpers/codeGeneration");
+const ProductService = require("../services/productService");
 
 // Generate auto code: TRA001
 const generateStockCode = async (req, res) => {
@@ -151,72 +152,198 @@ const validateItemsPayload = async (items, transaction) => {
   return { productIds, itemDetailIds };
 };
 
-
 // Create Stock Transfer with items
 const createStockTransfer = async (req, res) => {
   const transaction = await sequelize.transaction();
-
   try {
     const { items = [], remarks, created_by, ...transferData } = req.body;
     const { transfer_no, branch_from, branch_to } = transferData;
 
-    // VALIDATIONS
-    await validateRequiredFields(req, transaction);
+    await validateRequiredFields(req);
     await validateUniqueTransferNo(transfer_no, transaction);
     await validateBranches(branch_from, branch_to, transaction);
+    const { productIds, itemDetailIds } = await validateItemsPayload(items);
+    await validateProductsAndItemDetails(items, productIds, itemDetailIds, transaction);
 
-    const { productIds, itemDetailIds } =
-      await validateItemsPayload(items, transaction);
+    // Group by product
+    const grouped = {};
+    for (const i of items) (grouped[i.product_id] ||= []).push(i);
 
-    await validateProductsAndItemDetails(
-      items,
-      productIds,
-      itemDetailIds,
-      transaction
-    );
-
-    // CREATE MASTER
     const stockTransfer = await models.StockTransfer.create(
-      {
-        ...transferData,
-        created_by,
-        remarks,
-        status_id: 1,
-      },
+      { ...transferData, created_by, remarks, status_id: 1 },
       { transaction }
     );
 
-    // INSERT ITEMS
-    const stockItems = items.map(item => ({
-      ...item,
-      stock_transfer_id: stockTransfer.id,
-    }));
+    // sourceItemId → destination ids
+    const transferMap = {};
 
-    await models.StockTransferItem.bulkCreate(stockItems, { transaction });
+    for (const productId of Object.keys(grouped)) {
+      const rows = grouped[productId];
 
-    // STATUS HISTORY
-    await models.StockTransferStatusHistory.create(
-      {
+      const sourceProduct = await models.Product.findByPk(productId, { transaction });
+      const additionals = await models.ProductAdditionalDetail.findAll({ where: { product_id: productId }, transaction });
+      const variants = await models.ProductVariant.findAll({ where: { product_id: productId }, transaction });
+
+      let destinationProduct = null;
+      const newItemPayloads = [];
+
+      for (const row of rows) {
+        const { product_item_detail_id, transfer_quantity } = row;
+
+        const sourceItem = await models.ProductItemDetail.findOne({
+          where: {
+            id: product_item_detail_id,
+            product_id: productId,
+            quantity: { [Op.gte]: transfer_quantity }
+          },
+          transaction
+        });
+
+        if (!sourceItem) throw new Error("Insufficient stock for item " + product_item_detail_id);
+
+        await sourceItem.update(
+          { quantity: Number(sourceItem.quantity) - Number(transfer_quantity) },
+          { transaction }
+        );
+
+        // Find existing transferred SKU
+        const existingItem = await models.ProductItemDetail.findOne({
+          where: { sku_id: sourceItem.sku_id, is_stock_transferred: true },
+          transaction
+        });
+
+        let existingProduct = null;
+        if (existingItem) {
+          existingProduct = await models.Product.findOne({
+            where: { id: existingItem.product_id, branch_id: branch_to },
+            transaction
+          });
+        }
+
+        if (existingProduct) {
+          await existingItem.update(
+            { quantity: Number(existingItem.quantity) + Number(transfer_quantity) },
+            { transaction }
+          );
+
+          destinationProduct = existingProduct;
+          transferMap[sourceItem.id] = {
+            product_id: existingProduct.id,
+            item_id: existingItem.id
+          };
+        } else {
+            newItemPayloads.push({
+              _source_item_id: sourceItem.id,
+              sku_id: sourceItem.sku_id,
+              variation: sourceItem.variation,
+              quantity: transfer_quantity,
+              net_weight: sourceItem.net_weight,
+              gross_weight: sourceItem.gross_weight,
+              actual_stone_weight: sourceItem.actual_stone_weight,
+              stone_weight: sourceItem.stone_weight,
+              stone_value: sourceItem.stone_value,
+              rate_per_gram: sourceItem.rate_per_gram,
+              base_price: sourceItem.base_price,
+              item_price: sourceItem.item_price,
+              making_charge_type: sourceItem.making_charge_type,
+              making_charge: sourceItem.making_charge,
+              wastage_type: sourceItem.wastage_type,
+              wastage: sourceItem.wastage,
+              is_visible: sourceItem.is_visible,
+              website_price_type: sourceItem.website_price_type,
+              website_price: sourceItem.website_price,
+              measurement_details: sourceItem.measurement_details,
+              is_stock_transferred: true,
+
+            additional_details: additionals
+              .filter(a => a.item_detail_id === sourceItem.id)
+              .map(a => ({
+                ...a.get({ plain: true }),
+                id: undefined,
+                product_id: undefined,
+                item_detail_id: undefined
+              }))
+          });
+        }
+      }
+
+      // Create destination product if needed
+      if (newItemPayloads.length) {
+        const newProduct = await ProductService.createProductInternal({
+          product_name: sourceProduct.product_name,
+          product_code: sourceProduct.product_code,
+          description: sourceProduct.description,
+          vendor_id: sourceProduct.vendor_id,
+          material_type_id: sourceProduct.material_type_id,
+          category_id: sourceProduct.category_id,
+          subcategory_id: sourceProduct.subcategory_id,
+          grn_id: sourceProduct.grn_id,
+          hsn_code: sourceProduct.hsn_code,
+          purity: sourceProduct.purity,
+          product_type: sourceProduct.product_type,
+          variation_type: sourceProduct.variation_type,
+          sku_id: sourceProduct.sku_id,
+          product_variations: sourceProduct.product_variations,
+          ref_no_id: sourceProduct.ref_no_id,
+          image_urls: sourceProduct.image_urls,
+          qr_image_url: sourceProduct.qr_image_url,
+          is_published: sourceProduct.is_published,
+          branch_id: branch_to,
+          item_details: newItemPayloads
+        }, transaction);
+
+        destinationProduct = newProduct;
+
+        const newItems = await models.ProductItemDetail.findAll({
+          where: { product_id: newProduct.id },
+          order: [["id", "ASC"]],
+          transaction
+        });
+
+        for (let i = 0; i < newItems.length; i++) {
+          const srcId = newItemPayloads[i]._source_item_id;
+          transferMap[srcId] = {
+            product_id: newProduct.id,
+            item_id: newItems[i].id
+          };
+        }
+
+        if (variants.length) {
+          await models.ProductVariant.bulkCreate(
+            variants.map(v => ({
+              product_id: newProduct.id,
+              variant_id: v.variant_id,
+              variant_type_ids: v.variant_type_ids
+            })),
+            { transaction }
+          );
+        }
+
+        await ProductService.cloneProductAddOns(productId, newProduct.id, transaction);
+      }
+    }
+
+    // Save transfer items
+    await models.StockTransferItem.bulkCreate(
+      items.map(i => ({
+        ...i,
         stock_transfer_id: stockTransfer.id,
-        status_id: 1,
-        updated_by: created_by,
-        remarks: remarks || "Stock Transfer Created",
-      },
+        transferred_product_id: transferMap[i.product_item_detail_id].product_id,
+        transferred_product_item_id: transferMap[i.product_item_detail_id].item_id
+      })),
+      { transaction }
+    );
+
+    await models.StockTransferStatusHistory.create(
+      { stock_transfer_id: stockTransfer.id, status_id: 1, updated_by: created_by, remarks: "Stock Transfer Created" },
       { transaction }
     );
 
     await transaction.commit();
-
-    const result = await getStockTransferWithItems(stockTransfer.id);
-    return commonService.createdResponse(res, result);
-
-  } catch (error) {
-    if (!transaction.finished) {
-      await transaction.rollback();
-    }
-
-    console.error("Stock Transfer Create Error =>", error);
-    return commonService.badRequest(res, error.message);
+    return commonService.createdResponse(res, await getStockTransferWithItems(stockTransfer.id));
+  } catch (err) {
+    if (!transaction.finished) await transaction.rollback();
+    return commonService.badRequest(res, err.message);
   }
 };
 
@@ -294,7 +421,7 @@ const getStockTransferWithItems = async (stockTransferId) => {
       branch_from_detail: branchFrom || { id: stockTransfer.branch_from, branch_name: "Branch Not Found" },
       branch_to_detail: branchTo || { id: stockTransfer.branch_to, branch_name: "Branch Not Found" },
       items,
-      tracking_: tracking,
+      tracking_timeline: tracking,
     };
   } catch (error) {
     console.error("Error in getStockTransferWithItems:", error);
@@ -489,6 +616,7 @@ const updateStockTransferStatus = async (req, res) => {
     const { id } = req.params;
     const {
       status_id,
+
       // Dispatch
       total_packages,
       total_weight,
@@ -507,14 +635,14 @@ const updateStockTransferStatus = async (req, res) => {
       delivery_remarks,
     } = req.body;
 
-    if (!status_id ) {
+    if (!status_id) {
       throw new Error("status_id is required");
     }
-
-    // FETCH STOCK TRANSFER
+    
+    // FETCH STOCK TRANSFER  
     const stockTransfer = await models.StockTransfer.findOne({
       where: {
-        id: id,
+        id,
         deleted_at: null,
       },
       transaction,
@@ -523,8 +651,8 @@ const updateStockTransferStatus = async (req, res) => {
     if (!stockTransfer) {
       throw new Error("Stock Transfer not found");
     }
-
-    // STATUS VALIDATION
+    
+    // STATUS VALIDATION   
     if (stockTransfer.status_id === 3) {
       throw new Error("Delivered stock transfer cannot be updated");
     }
@@ -533,7 +661,6 @@ const updateStockTransferStatus = async (req, res) => {
       throw new Error("Invalid status transition");
     }
 
-    // STATUS-SPECIFIC VALIDATION
     if (status_id === 2 && !dispatch_date) {
       throw new Error("Dispatch date is required");
     }
@@ -541,21 +668,19 @@ const updateStockTransferStatus = async (req, res) => {
     if (status_id === 3 && !delivered_date) {
       throw new Error("Delivered date is required");
     }
-
-    // UPDATE STOCK TRANSFER
+   
+    // UPDATE STOCK TRANSFER STATUS    
     await stockTransfer.update(
-      {
-        status_id,
-      },
+      { status_id },
       { transaction }
     );
+    
+    // PREPARE TRACKING DATA (SAFE)    
+    const trackingData = {};
 
-    // INSERT TRACKING RECORD
-    await models.StockTransferTracking.create(
-      {
-        stock_transfer_id: id,
-
-        // Dispatch
+    if (status_id === 2) {
+      // DISPATCH DATA ONLY
+      Object.assign(trackingData, {
         total_packages,
         total_weight,
         dispatch_date,
@@ -564,16 +689,39 @@ const updateStockTransferStatus = async (req, res) => {
         tracking_number,
         attach_bill_url,
         tracking_remarks,
+      });
+    }
 
-        // Delivery
+    if (status_id === 3) {
+      // DELIVERY DATA ONLY
+      Object.assign(trackingData, {
         delivered_date,
         received_by,
         received_weight,
         received_packages,
         delivery_remarks,
-      },
-      { transaction }
-    );
+      });
+    }
+    
+    // UPSERT TRACKING RECORD    
+    const existingTracking = await models.StockTransferTracking.findOne({
+      where: { stock_transfer_id: id },
+      transaction,
+    });
+
+    if (existingTracking) {
+      // UPDATE EXISTING ROW
+      await existingTracking.update(trackingData, { transaction });
+    } else {
+      // CREATE FIRST ROW (DISPATCH ONLY)
+      await models.StockTransferTracking.create(
+        {
+          stock_transfer_id: id,
+          ...trackingData,
+        },
+        { transaction }
+      );
+    }
 
     await transaction.commit();
 
@@ -592,6 +740,156 @@ const updateStockTransferStatus = async (req, res) => {
 };
 
 
+const searchProductBySku = async (req, res) => {
+  try {
+    const { sku, product_name, branch_id } = req.query;
+
+    const [categories, subcategories, materialTypes] = await Promise.all([
+      models.Category.findAll({ raw: true }),
+      models.Subcategory.findAll({ raw: true }),
+      models.MaterialType.findAll({ raw: true }),
+    ]);
+
+    const categoryMap = new Map(categories.map(c => [c.id, c.category_name]));
+    const subcategoryMap = new Map(subcategories.map(sc => [sc.id, sc.subcategory_name]));
+    const materialTypeMap = new Map(materialTypes.map(m => [m.id, m.material_type]));
+
+    // Helper: convert product + item → flat response object
+    const formatItem = async (product, item) => {
+      const priceDetails = await ProductService.calculateSellingPrice(product, item, models);
+
+      return {
+        sku_id: item.sku_id || product.sku_id,
+        product_name: product.product_name,
+        product_description: product.description,
+        product_type: product.product_type,
+        branch_id: product.branch_id,
+        category_id: product.category_id,
+        category_name: categoryMap.get(product.category_id) || null,
+        subcategory_id: product.subcategory_id,
+        subcategory_name: subcategoryMap.get(product.subcategory_id) || null,
+        material_type_id: product.material_type_id,
+        material_type: materialTypeMap.get(product.material_type_id) || null,
+        variation_type: product.variation_type,
+        product_variations: product.product_variations,
+        purity: product.purity,
+        product_id: product.id,
+        product_item_details_id: item.id,
+        quantity: item.quantity,
+        hsn_code: product.hsn_code,
+        base_price: item.base_price,
+        gross_weight: item.gross_weight,
+        net_weight: item.net_weight,
+        product_item_wastage: item.wastage,
+        ...priceDetails,
+      };
+    };
+
+    // Build product search condition
+    const productWhere = {};
+
+    if (sku && sku.trim() !== "") {
+      productWhere.sku_id = sku.trim();
+    }
+
+    if (product_name && product_name.trim() !== "") {
+      productWhere.product_name = {
+        [Op.iLike]: `%${product_name.trim()}%`,
+      };
+    }
+
+    if (branch_id && branch_id.trim() !== "") {
+      productWhere.branch_id = Number(branch_id.trim());
+    }
+
+    // CASE 1 → No filters → get all in-stock items
+    if (Object.keys(productWhere).length === 0) {
+      const [allProducts, allItems] = await Promise.all([
+        models.Product.findAll({ raw: true }),
+        models.ProductItemDetail.findAll({
+          where: {
+            quantity: { [Op.gt]: 0 },
+            is_visible: true,
+          },
+          raw: true,
+        }),
+      ]);
+
+      const output = await Promise.all(
+        allItems.map(async (item) => {
+          const product = allProducts.find((p) => p.id === item.product_id);
+          return product ? formatItem(product, item) : null;
+        })
+      );
+
+      return commonService.okResponse(res, output.filter(Boolean));
+    }
+
+    // Fetch matching products
+    const products = await models.Product.findAll({
+      where: productWhere,
+      raw: true,
+    });
+
+    let items = [];
+
+    if (products.length > 0) {
+      const productIds = products.map((p) => p.id);
+
+      items = await models.ProductItemDetail.findAll({
+        where: {
+          product_id: { [Op.in]: productIds },
+          ...(sku ? { sku_id: sku.trim() } : {}),
+          quantity: { [Op.gt]: 0 },
+          is_visible: true,
+        },
+        raw: true,
+      });
+    }
+
+    // Item SKU only (fallback)
+    if (items.length === 0 && sku) {
+      const itemDetail = await models.ProductItemDetail.findOne({
+        where: {
+          sku_id: sku.trim(),
+          quantity: { [Op.gt]: 0 },
+          is_visible: true,
+        },
+        raw: true,
+      });
+
+      if (itemDetail) {
+        const product = await models.Product.findOne({
+          where: { id: itemDetail.product_id },
+          raw: true,
+        });
+
+        const response = await formatItem(product, itemDetail);
+        return commonService.okResponse(res, [response]);
+      }
+    }
+
+    if (items.length === 0) {
+      return commonService.notFound(
+        res,
+        "No in-stock product found for given search criteria"
+      );
+    }
+
+    // Flatten response
+    const flatResponse = await Promise.all(
+      items.map(async (item) => {
+        const product = products.find((p) => p.id === item.product_id);
+        return product ? formatItem(product, item) : null;
+      })
+    );
+
+    return commonService.okResponse(res, flatResponse.filter(Boolean));
+  } catch (error) {
+    console.error("Error searching products:", error);
+    return commonService.handleError(res, error);
+  }
+};
 module.exports = {
   generateStockCode,
   createStockTransfer,
@@ -605,4 +903,5 @@ module.exports = {
   validateItemsPayload,
   validateProductsAndItemDetails,
   updateStockTransferStatus,
+  searchProductBySku
 };

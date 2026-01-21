@@ -16,7 +16,7 @@ const createCustomer = async (req, res) => {
 
     const payload = {
       customer_code: req.body.customer_code,
-      customer_name: req.body.customer_name,
+      customer_name: req.body.customer_name || null,
       mobile_number: req.body.mobile_number,
       // Optional fields
       email_id: req.body.email_id || null,
@@ -177,6 +177,7 @@ const updateCustomer = async (req, res) => {
       district_id: req.body.district_id !== undefined ? +req.body.district_id : entity.district_id,
       pin_code: req.body.pin_code ?? entity.pin_code,
       pan_no: req.body.pan_no ?? entity.pan_no,
+      email_id: req.body.email_id ?? (entity.email_id || null)
     };
     await entity.update(up);
     return commonService.okResponse(res, { customer: entity });
@@ -213,7 +214,15 @@ const generateCustomerCode = async (req, res) => {
       return commonService.handleError(res, err);
     }
 };
-
+const generateOnlineCustomerCode = async () => {
+  const code = await generateFiscalSeriesCode(
+    models.Customer,
+    "customer_code",
+    "COD",
+    { pad: 3 }
+  );
+  return code;
+};
 // Dropdown: distinct customer mobile numbers
 const listCustomerMobilesDropdown = async (req, res) => {
   try {
@@ -448,5 +457,6 @@ module.exports = {
   generateCustomerCode,
   listCustomerMobilesDropdown,
   listCustomerNameMobileDropdown,
-  listCustomers
+  listCustomers,
+  generateOnlineCustomerCode
 };

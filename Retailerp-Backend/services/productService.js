@@ -1005,37 +1005,20 @@ const getAllProductDetails = async (req, res) => {
 
 const searchProductBySkuNew = async (req, res) => {
   try {
-    const { sku, product_name, branch_id } = req.query;
-
-    const [categories, subcategories, materialTypes] = await Promise.all([
-      models.Category.findAll({ raw: true }),
-      models.Subcategory.findAll({ raw: true }),
-      models.MaterialType.findAll({ raw: true }),
-    ]);
-
-    const categoryMap = new Map(categories.map(c => [c.id, c.category_name]));
-    const subcategoryMap = new Map(subcategories.map(sc => [sc.id, sc.subcategory_name]));
-    const materialTypeMap = new Map(materialTypes.map(m => [m.id, m.material_type]));
+    const { sku } = req.query;
 
     // Helper: convert product + item → flat response object
     const formatItem = async (product, item) => {
+    
+      // Add await here
       const priceDetails = await calculateSellingPrice(product, item, models);
 
       return {
-        sku_id: item.sku_id || product.sku_id,
+        sku_id: item.sku_id || product.sku_id, // Use item.sku_id if available
         product_name: product.product_name,
-        product_description: product.description,
-        product_type: product.product_type,
-        branch_id: product.branch_id,
-        category_id: product.category_id,
-        category_name: categoryMap.get(product.category_id) || null,
-        subcategory_id: product.subcategory_id,
-        subcategory_name: subcategoryMap.get(product.subcategory_id) || null,
-        material_type_id: product.material_type_id,
-        material_type: materialTypeMap.get(product.material_type_id) || null,
-        variation_type: product.variation_type,
         product_variations: product.product_variations,
         purity: product.purity,
+        branch_id: product.branch_id,
         product_id: product.id,
         product_item_details_id: item.id,
         quantity: item.quantity,
@@ -1048,25 +1031,8 @@ const searchProductBySkuNew = async (req, res) => {
       };
     };
 
-    // Build product search condition
-    const productWhere = {};
-
-    if (sku && sku.trim() !== "") {
-      productWhere.sku_id = sku.trim();
-    }
-
-    if (product_name && product_name.trim() !== "") {
-      productWhere.product_name = {
-        [Op.iLike]: `%${product_name.trim()}%`,
-      };
-    }
-
-    if (branch_id && branch_id.trim() !== "") {
-      productWhere.branch_id = Number(branch_id.trim());
-    }
-
-    // CASE 1 → No filters → get all in-stock items
-    if (Object.keys(productWhere).length === 0) {
+    // CASE 1 → No SKU supplied
+    if (!sku || sku.trim() === "") {
       const [allProducts, allItems] = await Promise.all([
         models.Product.findAll({ raw: true }),
         models.ProductItemDetail.findAll({
@@ -1078,6 +1044,7 @@ const searchProductBySkuNew = async (req, res) => {
         }),
       ]);
 
+      // Process items in parallel
       const output = await Promise.all(
         allItems.map(async (item) => {
           const product = allProducts.find((p) => p.id === item.product_id);
@@ -1085,71 +1052,63 @@ const searchProductBySkuNew = async (req, res) => {
         })
       );
 
+      // Filter out any null items (in case product wasn't found)
       return commonService.okResponse(res, output.filter(Boolean));
     }
 
-    // Fetch matching products
-    const products = await models.Product.findAll({
-      where: productWhere,
-      raw: true,
-    });
+    // CASE 2 → SKU provided
+    const [directProduct, itemDetail] = await Promise.all([
+      models.Product.findOne({ where: { sku_id: sku }, raw: true, }),
+      models.ProductItemDetail.findOne({
+        where: {
+          sku_id: sku,
+          quantity: { [Op.gt]: 0 },
+          is_visible: true,
+        },
+        raw: true,
+      }),
+    ]);
 
+    let product = null;
     let items = [];
 
-    if (products.length > 0) {
-      const productIds = products.map((p) => p.id);
-
+    if (directProduct) {
+      // If product SKU matched, return all its item variations
+      product = directProduct;
       items = await models.ProductItemDetail.findAll({
         where: {
-          product_id: { [Op.in]: productIds },
-          ...(sku ? { sku_id: sku.trim() } : {}),
+          product_id: directProduct.id,
           quantity: { [Op.gt]: 0 },
           is_visible: true,
         },
         raw: true,
       });
     }
-
-    // Item SKU only (fallback)
-    if (items.length === 0 && sku) {
-      const itemDetail = await models.ProductItemDetail.findOne({
-        where: {
-          sku_id: sku.trim(),
-          quantity: { [Op.gt]: 0 },
-          is_visible: true,
-        },
+    else if (itemDetail) {
+      // If item SKU matched, fetch its parent product
+      product = await models.Product.findOne({
+        where: { id: itemDetail.product_id },
         raw: true,
       });
-
-      if (itemDetail) {
-        const product = await models.Product.findOne({
-          where: { id: itemDetail.product_id },
-          raw: true,
-        });
-
-        const response = await formatItem(product, itemDetail);
-        return commonService.okResponse(res, [response]);
-      }
+      items = [itemDetail];
     }
 
-    if (items.length === 0) {
-      return commonService.notFound(
-        res,
-        "No in-stock product found for given search criteria"
-      );
+    // Nothing found or all items out of stock
+    if (!product || items.length === 0) {
+      return commonService.notFound(res, "No in-stock product found for given SKU");
     }
 
-    // Flatten response
+    // Convert to flat response with price calculations
     const flatResponse = await Promise.all(
-      items.map(async (item) => {
-        const product = products.find((p) => p.id === item.product_id);
-        return product ? formatItem(product, item) : null;
-      })
+      items
+        .filter((item) => item.quantity > 0)
+        .map((item) => formatItem(product, item))
+
     );
 
-    return commonService.okResponse(res, flatResponse.filter(Boolean));
+    return commonService.okResponse(res, flatResponse);
   } catch (error) {
-    console.error("Error searching products:", error);
+    console.error("Error searching products by SKU:", error);
     return commonService.handleError(res, error);
   }
 };
@@ -1991,6 +1950,73 @@ const getProductStockCounts = async (req, res) => {
   }
 };
 
+const createProductInternal = async (payload, transaction) => {
+  const { item_details, ...productData } = payload;
+
+  const product = await models.Product.create(productData, { transaction });
+
+  for (const d of item_details) {
+    const { additional_details = [], _source_item_id, ...fields } = d;
+
+    const item = await models.ProductItemDetail.create(
+      { ...fields, product_id: product.id },
+      { transaction }
+    );
+
+    if (additional_details.length) {
+      await models.ProductAdditionalDetail.bulkCreate(
+        additional_details.map(a => ({
+          ...a,
+          product_id: product.id,
+          item_detail_id: item.id
+        })),
+        { transaction }
+      );
+    }
+  }
+
+  const items = await models.ProductItemDetail.findAll({
+    where: { product_id: product.id },
+    transaction
+  });
+
+  const summary = computeSummaries(items, product.product_type);
+  await product.update(summary, { transaction });
+
+  return product;
+}
+
+const cloneProductAddOns = async (sourceProductId, destinationProductId, transaction) => {
+  const addons = await models.ProductAddOn.findAll({
+    where: { product_id: sourceProductId, deleted_at: null },
+    transaction,
+  });
+
+  if (!addons.length) return;
+
+  // Mark destination product as addon enabled
+  await models.Product.update(
+    { is_addOn: true },
+    { where: { id: destinationProductId }, transaction }
+  );
+
+  // Remove old add-ons to prevent duplicates
+  await models.ProductAddOn.destroy({
+    where: { product_id: destinationProductId },
+    force: true,
+    transaction,
+  });
+
+  await models.ProductAddOn.bulkCreate(
+    addons.map(a => ({
+      product_id: destinationProductId,
+      addon_product_id: a.addon_product_id,
+    })),
+    { transaction }
+  );
+};
+
+
 module.exports = {
   createProductSKUCode,
   createProduct,
@@ -2009,4 +2035,6 @@ module.exports = {
   calculateFinalPriceRate,
   getDeletedProducts,
   getProductStockCounts,
+  createProductInternal,
+  cloneProductAddOns,
 };
